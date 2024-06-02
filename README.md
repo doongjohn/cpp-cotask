@@ -14,8 +14,10 @@ C++ 20 coroutine task
   - [ ] write line
   - [ ] write append
 - asnyc tcp socket
-  - [ ] sync listen
-  - [ ] sync bind
-  - [ ] asnyc accept
-  - [ ] asnyc recv
-  - [ ] asnyc send
+  - [x] sync listen
+  - [x] sync bind
+  - [x] asnyc accept
+  - [x] asnyc recv once
+  - [ ] asnyc recv all
+  - [x] asnyc send once
+  - [ ] asnyc send all
