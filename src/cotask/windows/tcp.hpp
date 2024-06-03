@@ -7,9 +7,9 @@
 #include <mswsock.h>
 #include <windows.h>
 
+// TcpSocket
 namespace cotask {
 
-// TcpSocket
 struct TcpSocket::Impl {
   const AsyncIoType type = AsyncIoType::TcpSocket;
 
@@ -30,7 +30,11 @@ struct TcpSocket::Impl {
   }
 };
 
+} // namespace cotask
+
 // TcpAccept
+namespace cotask {
+
 struct OverlappedTcpAccept {
   OVERLAPPED ov{};
   const TcpIoType type = TcpIoType::Accept;
@@ -49,7 +53,11 @@ struct TcpAccept::Impl {
   inline explicit Impl(TcpAccept *awaitable) : ovex{awaitable} {}
 };
 
+} // namespace cotask
+
 // TcpConnect
+namespace cotask {
+
 struct OverlappedTcpConnect {
   OVERLAPPED ov{};
   const TcpIoType type = TcpIoType::Connect;
@@ -68,7 +76,11 @@ struct TcpConnect::Impl {
   inline explicit Impl(TcpConnect *awaitable) : ovex{awaitable} {}
 };
 
+} // namespace cotask
+
 // TcpRecvOnce
+namespace cotask {
+
 struct OverlappedTcpRecvOnce {
   OVERLAPPED ov{};
   const TcpIoType type = TcpIoType::RecvOnce;
@@ -87,7 +99,11 @@ struct TcpRecvOnce::Impl {
   inline explicit Impl(TcpRecvOnce *awaitable) : ovex{awaitable} {}
 };
 
+} // namespace cotask
+
 // TcpRecvAll
+namespace cotask {
+
 struct OverlappedTcpRecvAll {
   OVERLAPPED ov{};
   const TcpIoType type = TcpIoType::RecvAll;
@@ -107,7 +123,11 @@ struct TcpRecvAll::Impl {
   inline explicit Impl(TcpRecvAll *awaitable) : ovex{awaitable} {}
 };
 
+} // namespace cotask
+
 // TcpSendOnce
+namespace cotask {
+
 struct OverlappedTcpSendOnce {
   OVERLAPPED ov{};
   const TcpIoType type = TcpIoType::SendOnce;
@@ -126,7 +146,11 @@ struct TcpSendOnce::Impl {
   inline explicit Impl(TcpSendOnce *awaitable) : ovex{awaitable} {}
 };
 
+} // namespace cotask
+
 // TcpSendAll
+namespace cotask {
+
 struct OverlappedTcpSendAll {
   OVERLAPPED ov{};
   const TcpIoType type = TcpIoType::SendAll;
