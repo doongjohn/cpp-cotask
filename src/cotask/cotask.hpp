@@ -43,7 +43,6 @@ public:
   Impl *impl;
 
 private:
-  std::size_t waiting_task_count = 0;
   std::deque<ScheduledTask> async_tasks;
   std::vector<std::coroutine_handle<>> ended_task;
   std::vector<std::coroutine_handle<>> from_sync_tasks;
@@ -66,19 +65,6 @@ public:
     async_tasks.push_back(task);
   }
 
-  inline auto add_waiting_task_count() -> void {
-    waiting_task_count += 1;
-  }
-
-  inline auto schedule_waiting_done(ScheduledTask task) -> void {
-    assert(waiting_task_count != 0);
-    assert(task.await_subtask != nullptr);
-
-    waiting_task_count -= 1;
-    *task.await_subtask = false;
-    async_tasks.push_back(task);
-  }
-
   auto execute() -> void;
 
 private:
@@ -89,8 +75,8 @@ private:
 
 struct TaskPromise {
   TaskScheduler &ts;
-  std::coroutine_handle<> parent_cohandle = nullptr;
-  bool *parent_await_subtask = nullptr;
+  std::coroutine_handle<> outer_cohandle = nullptr;
+  bool *outer_await_subtask = nullptr;
   bool await_subtask = false;
 
   inline explicit TaskPromise(TaskScheduler &ts) : ts(ts) {}
@@ -112,8 +98,8 @@ struct Task<void> {
       return {};
     }
     inline auto final_suspend() noexcept -> std::suspend_always {
-      if (parent_await_subtask != nullptr) {
-        ts.schedule_waiting_done({parent_cohandle, parent_await_subtask});
+      if (outer_await_subtask != nullptr) {
+        *outer_await_subtask = false;
       }
       return {};
     }
@@ -133,12 +119,12 @@ struct Task<void> {
   inline Task(const Task &) = delete;
 
   inline Task(Task &&other) noexcept : cohandle{other.cohandle}, promise{other.promise} {
-    promise.parent_cohandle = other.promise.parent_cohandle;
-    promise.parent_await_subtask = other.promise.parent_await_subtask;
+    promise.outer_cohandle = other.promise.outer_cohandle;
+    promise.outer_await_subtask = other.promise.outer_await_subtask;
     promise.await_subtask = other.promise.await_subtask;
     other.cohandle = nullptr;
-    other.promise.parent_cohandle = nullptr;
-    other.promise.parent_await_subtask = nullptr;
+    other.promise.outer_cohandle = nullptr;
+    other.promise.outer_await_subtask = nullptr;
   }
 
   [[nodiscard]] inline auto await_ready() const noexcept -> bool {
@@ -146,18 +132,16 @@ struct Task<void> {
   }
 
   template <typename TaskT>
-  inline auto await_suspend(std::coroutine_handle<Task::promise_type> parent_cohandle) const noexcept -> void {
-    promise.parent_cohandle = parent_cohandle;
-    promise.parent_await_subtask = &parent_cohandle.promise().await_subtask;
-    *promise.parent_await_subtask = true;
-    promise.ts.add_waiting_task_count();
+  inline auto await_suspend(std::coroutine_handle<Task::promise_type> outer_cohandle) const noexcept -> void {
+    promise.outer_cohandle = outer_cohandle;
+    promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
+    *promise.outer_await_subtask = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> parent_cohandle) const noexcept -> void {
-    promise.parent_cohandle = parent_cohandle;
-    promise.parent_await_subtask = &parent_cohandle.promise().await_subtask;
-    *promise.parent_await_subtask = true;
-    promise.ts.add_waiting_task_count();
+  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> outer_cohandle) const noexcept -> void {
+    promise.outer_cohandle = outer_cohandle;
+    promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
+    *promise.outer_await_subtask = true;
   }
 
   inline auto await_resume() const noexcept -> void {
@@ -183,8 +167,8 @@ struct Task {
       return {};
     }
     inline auto final_suspend() noexcept -> std::suspend_always {
-      if (parent_await_subtask != nullptr) {
-        ts.schedule_waiting_done({parent_cohandle, parent_await_subtask});
+      if (outer_await_subtask != nullptr) {
+        *outer_await_subtask = false;
       }
       return {};
     }
@@ -206,13 +190,13 @@ struct Task {
   inline Task(const Task &) = delete;
 
   inline Task(Task &&other) noexcept : cohandle{other.cohandle}, promise{other.promise} {
-    promise.parent_cohandle = other.promise.parent_cohandle;
-    promise.parent_await_subtask = other.promise.parent_await_subtask;
+    promise.outer_cohandle = other.promise.outer_cohandle;
+    promise.outer_await_subtask = other.promise.outer_await_subtask;
     promise.await_subtask = other.promise.await_subtask;
     promise.result = other.promise.result;
     other.cohandle = nullptr;
-    other.promise.parent_cohandle = nullptr;
-    other.promise.parent_await_subtask = nullptr;
+    other.promise.outer_cohandle = nullptr;
+    other.promise.outer_await_subtask = nullptr;
   }
 
   [[nodiscard]] inline auto await_ready() const noexcept -> bool {
@@ -220,18 +204,16 @@ struct Task {
   }
 
   template <typename TaskT>
-  inline auto await_suspend(std::coroutine_handle<Task::promise_type> parent_cohandle) const noexcept -> void {
-    promise.parent_cohandle = parent_cohandle;
-    promise.parent_await_subtask = &parent_cohandle.promise().await_subtask;
-    *promise.parent_await_subtask = true;
-    promise.ts.add_waiting_task_count();
+  inline auto await_suspend(std::coroutine_handle<Task::promise_type> outer_cohandle) const noexcept -> void {
+    promise.outer_cohandle = outer_cohandle;
+    promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
+    *promise.outer_await_subtask = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> parent_cohandle) const noexcept -> void {
-    promise.parent_cohandle = parent_cohandle;
-    promise.parent_await_subtask = &parent_cohandle.promise().await_subtask;
-    *promise.parent_await_subtask = true;
-    promise.ts.add_waiting_task_count();
+  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> outer_cohandle) const noexcept -> void {
+    promise.outer_cohandle = outer_cohandle;
+    promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
+    *promise.outer_await_subtask = true;
   }
 
   [[nodiscard]] inline auto await_resume() const noexcept -> T {

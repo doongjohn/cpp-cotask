@@ -24,7 +24,7 @@ struct FileReadBuf {
 
 private:
   struct Impl;
-  uint8_t impl_storage[50]{};
+  uint8_t impl_storage[48]{};
   Impl *impl;
 
   TaskScheduler &ts;
@@ -36,10 +36,10 @@ private:
 
   const std::filesystem::path path;
   std::span<char> buf;
-  std::size_t offset;
+  uint64_t offset;
 
 public:
-  FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, std::size_t offset = 0);
+  FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, uint64_t offset = 0);
   ~FileReadBuf();
 
   auto io_recived(uint32_t bytes_transferred) -> void;
@@ -54,14 +54,12 @@ public:
     this->cohandle = cohandle;
     this->await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     this->await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   [[nodiscard]] inline auto await_resume() const noexcept -> FileReadBufResult {
@@ -88,7 +86,7 @@ struct FileReadAll {
 
 private:
   struct Impl;
-  uint8_t impl_storage[50]{};
+  uint8_t impl_storage[48]{};
   Impl *impl;
 
   TaskScheduler &ts;
@@ -101,10 +99,10 @@ private:
   const std::filesystem::path path;
   std::array<char, 500> buf;
   std::vector<char> content;
-  std::size_t offset;
+  uint64_t offset;
 
 public:
-  FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, std::size_t offset = 0);
+  FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, uint64_t offset = 0);
   ~FileReadAll();
 
   auto io_request() -> bool;
@@ -120,14 +118,12 @@ public:
     this->cohandle = cohandle;
     this->await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     this->await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   [[nodiscard]] inline auto await_resume() const noexcept -> FileReadAllResult {

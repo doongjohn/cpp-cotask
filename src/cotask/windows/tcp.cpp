@@ -95,6 +95,10 @@ auto OverlappedTcpAccept::io_succeed() -> void {
   awaitable->finished = true;
   awaitable->success = true;
 
+  if (awaitable->await_subtask != nullptr) {
+    *awaitable->await_subtask = false;
+  }
+
   auto socket = awaitable->accept_socket.impl->socket;
   auto iocp_handle = awaitable->ts.impl->iocp_handle;
   if (not ::CreateIoCompletionPort(std::bit_cast<HANDLE>(socket), iocp_handle, (ULONG_PTR)&awaitable->accept_socket,
@@ -105,22 +109,18 @@ auto OverlappedTcpAccept::io_succeed() -> void {
     ::closesocket(socket);
     awaitable->success = false;
   }
-
-  if (awaitable->cohandle) {
-    *awaitable->await_subtask = false;
-    awaitable->ts.schedule_waiting_done({awaitable->cohandle, awaitable->await_subtask});
-  }
 }
 
 auto OverlappedTcpAccept::io_failed(DWORD err_code) -> void {
   awaitable->finished = true;
   awaitable->success = false;
+
+  if (awaitable->await_subtask != nullptr) {
+    *awaitable->await_subtask = false;
+  }
+
   std::cerr << utils::with_location(std::format("TcpAccept compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-  if (awaitable->cohandle) {
-    *awaitable->await_subtask = false;
-    awaitable->ts.schedule_waiting_done({awaitable->cohandle, awaitable->await_subtask});
-  }
 }
 
 TcpAccept::TcpAccept(TaskScheduler &ts) : ts{ts}, accept_socket{ts} {
@@ -146,7 +146,7 @@ auto TcpSocket::accept() -> TcpAccept {
   // accept
   auto init_buf = char{};
   auto bytes_recived = DWORD{};
-  auto addr_size = sizeof(sockaddr_in) + 16;
+  auto addr_size = DWORD{sizeof(sockaddr_in) + 16};
   auto accept_result = ::AcceptEx(impl->socket, accept_socket, &init_buf, 0, addr_size, addr_size, &bytes_recived,
                                   (OVERLAPPED *)&awaitable.impl->ovex);
   if (not accept_result) {
@@ -158,10 +158,11 @@ auto TcpSocket::accept() -> TcpAccept {
     }
   }
 
-  // return awaitable
   awaitable.accept_socket = TcpSocket{ts};
   awaitable.accept_socket.impl->socket = accept_socket;
   awaitable.success = true;
+
+  ts.impl->io_task_count += 1;
   return awaitable;
 }
 
@@ -173,21 +174,22 @@ namespace cotask {
 auto OverlappedTcpConnect::io_succeed() -> void {
   awaitable->finished = true;
   awaitable->success = true;
-  if (awaitable->cohandle) {
+
+  if (awaitable->await_subtask != nullptr) {
     *awaitable->await_subtask = false;
-    awaitable->ts.schedule_waiting_done({awaitable->cohandle, awaitable->await_subtask});
   }
 }
 
 auto OverlappedTcpConnect::io_failed(DWORD err_code) -> void {
   awaitable->finished = true;
   awaitable->success = false;
+
+  if (awaitable->await_subtask != nullptr) {
+    *awaitable->await_subtask = false;
+  }
+
   std::cerr << utils::with_location(std::format("TcpConnect compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-  if (awaitable->cohandle) {
-    *awaitable->await_subtask = false;
-    awaitable->ts.schedule_waiting_done({awaitable->cohandle, awaitable->await_subtask});
-  }
 }
 
 TcpConnect::TcpConnect(TaskScheduler &ts) : ts{ts} {
@@ -260,20 +262,20 @@ auto TcpSocket::connect(std::string_view ip, std::string_view port) -> TcpConnec
   // connect
   auto connect_result = impl->fnConnectEx(impl->socket, connect_addr_list->ai_addr, sizeof(sockaddr), nullptr, 0,
                                           nullptr, (OVERLAPPED *)&awaitable.impl->ovex);
+  ::freeaddrinfo(connect_addr_list);
+
   if (not connect_result) {
     const auto err_code = ::WSAGetLastError();
     if (err_code != WSA_IO_PENDING) {
       std::cerr << utils::with_location(std::format("ConnectEx failed: {}", err_code))
                 << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-
-      ::freeaddrinfo(connect_addr_list);
       return awaitable;
     }
   }
 
-  ::freeaddrinfo(connect_addr_list);
-
   awaitable.success = true;
+
+  ts.impl->io_task_count += 1;
   return awaitable;
 }
 
@@ -322,21 +324,22 @@ auto OverlappedTcpRecvOnce::io_succeed(DWORD bytes_recived) -> void {
   awaitable->finished = true;
   awaitable->success = true;
   awaitable->buf = {awaitable->buf.data(), bytes_recived};
-  if (awaitable->cohandle) {
+
+  if (awaitable->await_subtask != nullptr) {
     *awaitable->await_subtask = false;
-    awaitable->ts.schedule_waiting_done({awaitable->cohandle, awaitable->await_subtask});
   }
 }
 
 auto OverlappedTcpRecvOnce::io_failed(DWORD err_code) -> void {
   awaitable->finished = true;
   awaitable->success = false;
+
+  if (awaitable->await_subtask != nullptr) {
+    *awaitable->await_subtask = false;
+  }
+
   std::cerr << utils::with_location(std::format("TcpRecvOnce compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-  if (awaitable->cohandle) {
-    *awaitable->await_subtask = false;
-    awaitable->ts.schedule_waiting_done({awaitable->cohandle, awaitable->await_subtask});
-  }
 }
 
 TcpRecvOnce::TcpRecvOnce(TaskScheduler &ts, std::span<char> buf) : ts{ts}, buf{buf} {
@@ -370,6 +373,8 @@ auto TcpSocket::recv_once(std::span<char> buf) -> TcpRecvOnce {
   }
 
   awaitable.success = true;
+
+  ts.impl->io_task_count += 1;
   return awaitable;
 }
 
@@ -390,9 +395,13 @@ auto OverlappedTcpRecvAll::io_request() -> bool {
 auto OverlappedTcpRecvAll::io_failed(DWORD err_code) -> void {
   awaitable->finished = true;
   awaitable->success = false;
+
+  if (awaitable->await_subtask != nullptr) {
+    *awaitable->await_subtask = false;
+  }
+
   std::cerr << utils::with_location(std::format("TcpRecvAll compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-  // TODO
 }
 
 TcpRecvAll::TcpRecvAll(TaskScheduler &ts, std::span<char> buf) : ts{ts}, buf{buf} {
@@ -408,6 +417,8 @@ auto TcpSocket::recv_all(std::span<char> buf) -> TcpRecvAll {
   // TODO
 
   awaitable.success = true;
+
+  ts.impl->io_task_count += 1;
   return awaitable;
 }
 
@@ -420,21 +431,22 @@ auto OverlappedTcpSendOnce::io_succeed(DWORD bytes_sent) -> void {
   awaitable->finished = true;
   awaitable->success = true;
   awaitable->bytes_sent = bytes_sent;
-  if (awaitable->cohandle) {
+
+  if (awaitable->await_subtask != nullptr) {
     *awaitable->await_subtask = false;
-    awaitable->ts.schedule_waiting_done({awaitable->cohandle, awaitable->await_subtask});
   }
 }
 
 auto OverlappedTcpSendOnce::io_failed(DWORD err_code) -> void {
   awaitable->finished = true;
   awaitable->success = false;
+
+  if (awaitable->await_subtask != nullptr) {
+    *awaitable->await_subtask = false;
+  }
+
   std::cerr << utils::with_location(std::format("TcpSendOnce compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-  if (awaitable->cohandle) {
-    *awaitable->await_subtask = false;
-    awaitable->ts.schedule_waiting_done({awaitable->cohandle, awaitable->await_subtask});
-  }
 }
 
 TcpSendOnce::TcpSendOnce(TaskScheduler &ts, std::span<char> buf) : ts{ts}, buf{buf} {
@@ -467,6 +479,8 @@ auto TcpSocket::send_once(std::span<char> buf) -> TcpSendOnce {
   }
 
   awaitable.success = true;
+
+  ts.impl->io_task_count += 1;
   return awaitable;
 }
 
@@ -501,6 +515,8 @@ auto TcpSocket::send_all(std::span<char> buf) -> TcpSendAll {
   // TODO
 
   awaitable.success = true;
+
+  ts.impl->io_task_count += 1;
   return awaitable;
 }
 

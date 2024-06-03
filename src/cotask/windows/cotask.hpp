@@ -33,6 +33,7 @@ struct TcpOverlapped {
 
 struct TaskScheduler::Impl {
   HANDLE iocp_handle = nullptr;
+  uint64_t io_task_count = 0;
 };
 
 } // namespace cotask

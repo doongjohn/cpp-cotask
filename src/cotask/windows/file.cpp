@@ -14,12 +14,13 @@ namespace cotask {
   return {buf.data(), buf.size()};
 }
 
-FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, std::size_t offset)
+FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, uint64_t offset)
     : ts{ts}, path{path}, buf{buf}, offset{offset} {
   CONSTRUCT_IMPL();
 
   // initialize OVERLAPPED
-  impl->ov.Offset = offset;
+  impl->ov.Offset = static_cast<uint32_t>(offset);           // low 32bits
+  impl->ov.OffsetHigh = static_cast<uint32_t>(offset >> 32); // high 32bits
 
   // open file
   impl->file_handle =
@@ -45,7 +46,8 @@ FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, s
 
   // read file
   auto bytes_read = DWORD{};
-  const auto read_success = ::ReadFile(impl->file_handle, buf.data(), buf.size(), &bytes_read, &impl->ov);
+  const auto read_success =
+    ::ReadFile(impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()), &bytes_read, &impl->ov);
   const auto read_err_code = ::GetLastError();
   if (not read_success and read_err_code != ERROR_IO_PENDING) {
     std::cerr << utils::with_location(std::format("ReadFile failed for \"{}\": {}",
@@ -55,6 +57,7 @@ FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, s
     return;
   }
 
+  ts.impl->io_task_count += 1;
   success = true;
 }
 
@@ -67,8 +70,8 @@ auto FileReadBuf::io_recived(uint32_t bytes_transferred) -> void {
   if (bytes_transferred <= buf.size()) {
     ::CloseHandle(impl->file_handle);
     finished = true;
-    if (cohandle) {
-      ts.schedule_waiting_done({cohandle, await_subtask});
+    if (await_subtask != nullptr) {
+      *await_subtask = false;
     }
   }
 }
@@ -79,8 +82,8 @@ auto FileReadBuf::io_failed(uint32_t err_code) -> void {
 
   ::CloseHandle(impl->file_handle);
   success = false;
-  if (cohandle) {
-    ts.schedule_waiting_done({cohandle, await_subtask});
+  if (await_subtask != nullptr) {
+    *await_subtask = false;
   }
 }
 
@@ -97,7 +100,8 @@ FileReadAll::FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, s
   CONSTRUCT_IMPL();
 
   // initialize OVERLAPPED
-  impl->ov.Offset = offset;
+  impl->ov.Offset = static_cast<uint32_t>(offset);           // low 32bits
+  impl->ov.OffsetHigh = static_cast<uint32_t>(offset >> 32); // high 32bits
 
   // open file
   impl->file_handle =
@@ -135,7 +139,8 @@ FileReadAll::~FileReadAll() {
 
 auto FileReadAll::io_request() -> bool {
   auto bytes_read = DWORD{};
-  const auto read_success = ::ReadFile(impl->file_handle, buf.data(), buf.size(), &bytes_read, &impl->ov);
+  const auto read_success =
+    ::ReadFile(impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()), &bytes_read, &impl->ov);
   const auto err_code = ::GetLastError();
   if (not read_success and err_code != ERROR_IO_PENDING) {
     std::cerr << utils::with_location(
@@ -146,28 +151,31 @@ auto FileReadAll::io_request() -> bool {
     return false;
   }
 
+  ts.impl->io_task_count += 1;
   return true;
 }
 
 auto FileReadAll::io_recived(uint32_t bytes_transferred) -> void {
   // append bytes
-  impl->ov.Offset += bytes_transferred;
+  offset += bytes_transferred;
+  impl->ov.Offset = static_cast<uint32_t>(offset);           // low 32bits
+  impl->ov.OffsetHigh = static_cast<uint32_t>(offset >> 32); // high 32bits
   content.insert(content.end(), buf.data(), buf.data() + bytes_transferred);
 
   // check finished
   if (bytes_transferred < buf.size()) {
     ::CloseHandle(impl->file_handle);
     finished = true;
-    if (cohandle) {
-      ts.schedule_waiting_done({cohandle, await_subtask});
+    if (await_subtask != nullptr) {
+      *await_subtask = false;
     }
     return;
   }
 
   // read more bytes
   if (not io_request()) {
-    if (cohandle) {
-      ts.schedule_waiting_done({cohandle, await_subtask});
+    if (await_subtask != nullptr) {
+      *await_subtask = false;
     }
   }
 }
@@ -178,8 +186,8 @@ auto FileReadAll::io_failed(uint32_t err_code) -> void {
 
   ::CloseHandle(impl->file_handle);
   success = false;
-  if (cohandle) {
-    ts.schedule_waiting_done({cohandle, await_subtask});
+  if (await_subtask != nullptr) {
+    *await_subtask = false;
   }
 }
 

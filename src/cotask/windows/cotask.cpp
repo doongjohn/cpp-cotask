@@ -47,15 +47,37 @@ TaskScheduler::~TaskScheduler() {
 
 auto TaskScheduler::execute() -> void {
   // event loop
-  while (not async_tasks.empty() or waiting_task_count != 0) {
-    // https://jacking75.github.io/info-design-issues-when-using-iocp-in-a-winsock-server/
+  while (not async_tasks.empty()) {
+    // run tasks
+    auto task = async_tasks.front();
+    async_tasks.pop_front();
+    if (task.can_resume()) {
+      task.resume();
+    }
+    if (not task.done()) {
+      async_tasks.push_back(task);
+    }
+
+    // destroy ended coroutine handles
+    for (auto &cohandle : ended_task | std::views::reverse) {
+      cohandle.destroy();
+    }
+    ended_task.clear();
+
+    if (async_tasks.empty()) {
+      // TODO: handle remaining io completions
+      break;
+    }
+
     auto entries = std::array<OVERLAPPED_ENTRY, 10>{};
     auto num_entries = ULONG{};
-    auto timeout = async_tasks.empty() ? 500 : 0;
-    if (not ::GetQueuedCompletionStatusEx(impl->iocp_handle, entries.data(), entries.size(), &num_entries, timeout,
-                                          FALSE)) {
+    auto timeout = impl->io_task_count == 0 ? 0 : 1;
+    if (not ::GetQueuedCompletionStatusEx(impl->iocp_handle, entries.data(), static_cast<ULONG>(entries.size()),
+                                          &num_entries, timeout, FALSE)) {
       const auto err_code = ::GetLastError();
-      if (err_code != WAIT_TIMEOUT) {
+      if (err_code == WAIT_TIMEOUT) {
+        continue;
+      } else {
         std::cerr << utils::with_location(std::format("GetQueuedCompletionStatusEx failed: {}", err_code))
                   << std::format("err msg: {}\n", std::system_category().message((int)err_code));
         return;
@@ -65,17 +87,23 @@ auto TaskScheduler::execute() -> void {
     // handle io completions
     for (const auto entry : std::span{entries.data(), num_entries}) {
       const auto completion_key = std::bit_cast<AsyncIoBase *>(entry.lpCompletionKey);
+      if (completion_key == nullptr) {
+        continue;
+      }
+
+      assert(impl->io_task_count != 0);
+      if (impl->io_task_count != 0) {
+        impl->io_task_count -= 1;
+      }
+
       const auto overlapped = entry.lpOverlapped;
       const auto bytes_transferred = entry.dwNumberOfBytesTransferred;
-
-      assert(completion_key != nullptr);
-      assert(overlapped != nullptr);
 
       auto n = DWORD{};
       switch (completion_key->type) {
       case AsyncIoType::FileReadBuf: {
         auto io_task = (FileReadBuf *)completion_key;
-        if (not ::GetOverlappedResult(io_task->impl->file_handle, entry.lpOverlapped, &n, FALSE)) {
+        if (not ::GetOverlappedResult(io_task->impl->file_handle, overlapped, &n, TRUE)) {
           const auto err_code = ::GetLastError();
           if (err_code != ERROR_HANDLE_EOF) {
             io_task->io_failed(err_code);
@@ -87,7 +115,7 @@ auto TaskScheduler::execute() -> void {
 
       case AsyncIoType::FileReadAll: {
         auto io_task = (FileReadAll *)completion_key;
-        if (not ::GetOverlappedResult(io_task->impl->file_handle, entry.lpOverlapped, &n, FALSE)) {
+        if (not ::GetOverlappedResult(io_task->impl->file_handle, overlapped, &n, TRUE)) {
           const auto err_code = ::GetLastError();
           if (err_code != ERROR_HANDLE_EOF) {
             io_task->io_failed(err_code);
@@ -105,36 +133,30 @@ auto TaskScheduler::execute() -> void {
         switch (ov->type) {
         case TcpIoType::Accept: {
           auto ovex = reinterpret_cast<OverlappedTcpAccept *>(ov);
-          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, entry.lpOverlapped, &n, FALSE, &flags)) {
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
-            if (err_code != ERROR_HANDLE_EOF) {
-              ovex->io_failed(err_code);
-              continue;
-            }
+            ovex->io_failed(err_code);
+            continue;
           }
           ovex->io_succeed();
         } break;
 
         case TcpIoType::Connect: {
           auto ovex = reinterpret_cast<OverlappedTcpConnect *>(ov);
-          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, entry.lpOverlapped, &n, FALSE, &flags)) {
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
-            if (err_code != ERROR_HANDLE_EOF) {
-              ovex->io_failed(err_code);
-              continue;
-            }
+            ovex->io_failed(err_code);
+            continue;
           }
           ovex->io_succeed();
         } break;
 
         case TcpIoType::RecvOnce: {
           auto ovex = reinterpret_cast<OverlappedTcpRecvOnce *>(ov);
-          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, entry.lpOverlapped, &n, FALSE, &flags)) {
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
-            if (err_code != ERROR_HANDLE_EOF) {
-              ovex->io_failed(err_code);
-              continue;
-            }
+            ovex->io_failed(err_code);
+            continue;
           }
           ovex->io_succeed(bytes_transferred);
         } break;
@@ -146,12 +168,10 @@ auto TaskScheduler::execute() -> void {
 
         case TcpIoType::SendOnce: {
           auto ovex = reinterpret_cast<OverlappedTcpSendOnce *>(ov);
-          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, entry.lpOverlapped, &n, FALSE, &flags)) {
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
-            if (err_code != ERROR_HANDLE_EOF) {
-              ovex->io_failed(err_code);
-              continue;
-            }
+            ovex->io_failed(err_code);
+            continue;
           }
           ovex->io_succeed(bytes_transferred);
         } break;
@@ -164,32 +184,11 @@ auto TaskScheduler::execute() -> void {
       } break;
       }
     }
-
-    // run tasks
-    if (not async_tasks.empty()) {
-      auto task = async_tasks.front();
-      async_tasks.pop_front();
-      if (task.can_resume()) {
-        task.resume();
-        if (not task.done()) {
-          async_tasks.push_back(task);
-        }
-      }
-
-      // destroy ended coroutine handles
-      for (auto &task : ended_task | std::views::reverse) {
-        task.destroy();
-      }
-      ended_task.clear();
-    }
   }
 
-  // event loop ended
-  assert(ended_task.empty());
-
   // destroy ended coroutine handles
-  for (auto &task : from_sync_tasks | std::views::reverse) {
-    task.destroy();
+  for (auto &cohandle : from_sync_tasks | std::views::reverse) {
+    cohandle.destroy();
   }
   from_sync_tasks.clear();
 }

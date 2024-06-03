@@ -91,22 +91,25 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return finished or not success;
+    // return finished or not success;
+    return false;
   }
 
   template <typename T>
   inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
-    await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
+    if (not finished and success) {
+      this->cohandle = cohandle;
+      await_subtask = &cohandle.promise().await_subtask;
+      cohandle.promise().await_subtask = true;
+    }
   }
 
   inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
-    await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
+    if (not finished and success) {
+      this->cohandle = cohandle;
+      await_subtask = &cohandle.promise().await_subtask;
+      cohandle.promise().await_subtask = true;
+    }
   }
 
   inline auto await_resume() -> TcpAcceptResult {
@@ -153,14 +156,12 @@ public:
     this->cohandle = cohandle;
     await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   inline auto await_resume() -> TcpConnectResult {
@@ -201,22 +202,25 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return finished or not success;
+    // return finished or not success;
+    return false;
   }
 
   template <typename T>
   inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
-    await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
+    if (not finished and success) {
+      this->cohandle = cohandle;
+      await_subtask = &cohandle.promise().await_subtask;
+      cohandle.promise().await_subtask = true;
+    }
   }
 
   inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
-    await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
+    if (not finished and success) {
+      this->cohandle = cohandle;
+      await_subtask = &cohandle.promise().await_subtask;
+      cohandle.promise().await_subtask = true;
+    }
   }
 
   inline auto await_resume() -> TcpRecvResult {
@@ -260,14 +264,12 @@ public:
     this->cohandle = cohandle;
     await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   inline auto await_resume() -> TcpRecvResult {
@@ -310,22 +312,25 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return finished or not success;
+    // return finished or not success;
+    return false;
   }
 
   template <typename T>
   inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
-    await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
+    if (not finished and success) {
+      this->cohandle = cohandle;
+      await_subtask = &cohandle.promise().await_subtask;
+      cohandle.promise().await_subtask = true;
+    }
   }
 
   inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
-    await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
+    if (not finished and success) {
+      this->cohandle = cohandle;
+      await_subtask = &cohandle.promise().await_subtask;
+      cohandle.promise().await_subtask = true;
+    }
   }
 
   inline auto await_resume() -> TcpSendResult {
@@ -370,14 +375,12 @@ public:
     this->cohandle = cohandle;
     await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     await_subtask = &cohandle.promise().await_subtask;
     cohandle.promise().await_subtask = true;
-    ts.add_waiting_task_count();
   }
 
   inline auto await_resume() -> TcpSendResult {
