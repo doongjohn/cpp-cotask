@@ -15,8 +15,13 @@ struct FileReadBufResult {
 
   std::span<char> buf;
 
-  [[nodiscard]] auto to_string() const -> std::string;
-  [[nodiscard]] auto to_string_view() const -> std::string_view;
+  [[nodiscard]] inline auto to_string() const -> std::string {
+    return {buf.data(), buf.size()};
+  }
+
+  [[nodiscard]] inline auto to_string_view() const -> std::string_view {
+    return {buf.data(), buf.size()};
+  }
 };
 
 struct FileReadBuf {
@@ -36,7 +41,7 @@ private:
 
   const std::filesystem::path path;
   std::span<char> buf;
-  uint64_t offset;
+  uint64_t offset = 0;
 
 public:
   FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, uint64_t offset = 0);
@@ -77,8 +82,13 @@ struct FileReadAllResult {
 
   std::vector<char> content;
 
-  [[nodiscard]] auto to_string() const -> std::string;
-  [[nodiscard]] auto to_string_view() const -> std::string_view;
+  [[nodiscard]] inline auto to_string() const -> std::string {
+    return {content.data(), content.size()};
+  }
+
+  [[nodiscard]] inline auto to_string_view() const -> std::string_view {
+    return {content.data(), content.size()};
+  }
 };
 
 struct FileReadAll {
@@ -99,7 +109,7 @@ private:
   const std::filesystem::path path;
   std::array<char, 500> buf;
   std::vector<char> content;
-  uint64_t offset;
+  uint64_t offset = 0;
 
 public:
   FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, uint64_t offset = 0);

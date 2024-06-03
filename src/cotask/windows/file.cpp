@@ -6,14 +6,6 @@
 
 namespace cotask {
 
-[[nodiscard]] auto FileReadBufResult::to_string() const -> std::string {
-  return {buf.data(), buf.size()};
-}
-
-[[nodiscard]] auto FileReadBufResult::to_string_view() const -> std::string_view {
-  return {buf.data(), buf.size()};
-}
-
 FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, uint64_t offset)
     : ts{ts}, path{path}, buf{buf}, offset{offset} {
   CONSTRUCT_IMPL();
@@ -85,14 +77,6 @@ auto FileReadBuf::io_failed(uint32_t err_code) -> void {
   if (await_subtask != nullptr) {
     *await_subtask = false;
   }
-}
-
-[[nodiscard]] auto FileReadAllResult::to_string() const -> std::string {
-  return {content.data(), content.size()};
-}
-
-[[nodiscard]] auto FileReadAllResult::to_string_view() const -> std::string_view {
-  return {content.data(), content.size()};
 }
 
 FileReadAll::FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, std::size_t offset)

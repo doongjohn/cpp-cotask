@@ -31,7 +31,7 @@
     if (not recv_result.success) {
       break;
     }
-    std::cout << std::string_view{recv_result.buf.data(), recv_result.buf.size()} << '\n';
+    std::cout << recv_result.to_string_view() << '\n';
 
     co_await std::suspend_always{};
   }

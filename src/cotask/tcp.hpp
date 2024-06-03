@@ -176,6 +176,14 @@ struct TcpRecvResult {
   bool finished = false;
   bool success = false;
   std::span<char> buf;
+
+  [[nodiscard]] inline auto to_string() const -> std::string {
+    return {buf.data(), buf.size()};
+  }
+
+  [[nodiscard]] inline auto to_string_view() const -> std::string_view {
+    return {buf.data(), buf.size()};
+  }
 };
 
 struct TcpRecvOnce {
