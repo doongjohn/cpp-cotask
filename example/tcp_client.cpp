@@ -20,7 +20,7 @@
       if (not recv_result.success) {
         break;
       }
-      std::cout << recv_result.to_string_view() << '\n';
+      std::cout << recv_result.get_string_view() << '\n';
 
       std::cout << "client - send\n";
       auto send_msg = std::string{"hello from tcp client!"};

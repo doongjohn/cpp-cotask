@@ -20,8 +20,8 @@
   auto read_all = cotask::FileReadAll{ts, "src/cotask/utils.hpp"};
   auto read_buf_result = co_await read_buf;
   auto read_all_result = co_await read_all;
-  std::cout << "async_fn1 - read_buf_result:\n" << read_buf_result.to_string_view() << '\n';
-  std::cout << "async_fn1 - read_all_result:\n" << read_all_result.to_string_view() << '\n';
+  std::cout << "async_fn1 - read_buf_result:\n" << read_buf_result.get_string_view() << '\n';
+  std::cout << "async_fn1 - read_all_result:\n" << read_all_result.get_string_view() << '\n';
   std::cout << "async_fn1 - done\n";
   co_return;
 };
@@ -35,8 +35,8 @@
     auto read_all = cotask::FileReadAll{ts, "src/cotask/utils.hpp"};
     auto read_buf_result = co_await read_buf;
     auto read_all_result = co_await read_all;
-    std::cout << "async_fn2 - read_buf_result:\n" << read_buf_result.to_string_view() << '\n';
-    std::cout << "async_fn2 - read_all_result:\n" << read_all_result.to_string_view() << '\n';
+    std::cout << "async_fn2 - read_buf_result:\n" << read_buf_result.get_string_view() << '\n';
+    std::cout << "async_fn2 - read_all_result:\n" << read_all_result.get_string_view() << '\n';
   }
   std::cout << "async_fn2 - done\n";
   co_return;

@@ -15,11 +15,11 @@ struct FileReadBufResult {
 
   std::span<char> buf;
 
-  [[nodiscard]] inline auto to_string() const -> std::string {
+  [[nodiscard]] inline auto get_string() const -> std::string {
     return {buf.data(), buf.size()};
   }
 
-  [[nodiscard]] inline auto to_string_view() const -> std::string_view {
+  [[nodiscard]] inline auto get_string_view() const -> std::string_view {
     return {buf.data(), buf.size()};
   }
 };
@@ -82,11 +82,11 @@ struct FileReadAllResult {
 
   std::vector<char> content;
 
-  [[nodiscard]] inline auto to_string() const -> std::string {
+  [[nodiscard]] inline auto get_string() const -> std::string {
     return {content.data(), content.size()};
   }
 
-  [[nodiscard]] inline auto to_string_view() const -> std::string_view {
+  [[nodiscard]] inline auto get_string_view() const -> std::string_view {
     return {content.data(), content.size()};
   }
 };

@@ -6,10 +6,7 @@
 
 #include <cotask/tcp.hpp>
 
-[[nodiscard]] auto async_fn(cotask::TaskScheduler &, cotask::TcpSocket &listen_socket) -> cotask::Task<void> {
-  static auto n = 0;
-  ++n;
-
+[[nodiscard]] auto async_fn(cotask::TaskScheduler &, cotask::TcpSocket &listen_socket, int n) -> cotask::Task<void> {
   std::cout << std::format("server {} - accpet\n", n);
   auto accept_result = co_await listen_socket.accept();
   if (not accept_result.success) {
@@ -31,7 +28,7 @@
     if (not recv_result.success) {
       break;
     }
-    std::cout << recv_result.to_string_view() << '\n';
+    std::cout << recv_result.get_string_view() << '\n';
 
     co_await std::suspend_always{};
   }
@@ -51,7 +48,7 @@ auto main() -> int {
 
   auto max_clients = 3;
   for (auto i = 0; i < max_clients; ++i) {
-    ts.schedule_from_sync(async_fn(ts, listen_socket));
+    ts.schedule_from_sync(async_fn(ts, listen_socket, i));
   }
   ts.execute();
   listen_socket.close();
