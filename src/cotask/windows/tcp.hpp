@@ -32,85 +32,81 @@ struct TcpSocket::Impl {
 
 } // namespace cotask
 
-// TcpAccept
+// Accept
 namespace cotask {
 
-struct OverlappedTcpAccept {
-  OVERLAPPED ov{};
+struct OverlappedTcpAccept : public OVERLAPPED {
   const TcpIoType type = TcpIoType::Accept;
 
   TcpAccept *awaitable;
 
-  inline OverlappedTcpAccept(TcpAccept *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpAccept(TcpAccept *awaitable) : awaitable{awaitable} {}
 
   auto io_succeed() -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
 struct TcpAccept::Impl {
-  OverlappedTcpAccept ovex; // OVERLAPPED extened
+  OverlappedTcpAccept ovex;
 
   inline explicit Impl(TcpAccept *awaitable) : ovex{awaitable} {}
 };
 
 } // namespace cotask
 
-// TcpConnect
+// Connect
 namespace cotask {
 
-struct OverlappedTcpConnect {
-  OVERLAPPED ov{};
+struct OverlappedTcpConnect : public OVERLAPPED {
   const TcpIoType type = TcpIoType::Connect;
 
   TcpConnect *awaitable;
 
-  inline OverlappedTcpConnect(TcpConnect *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpConnect(TcpConnect *awaitable) : awaitable{awaitable} {}
 
   auto io_succeed() -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
 struct TcpConnect::Impl {
-  OverlappedTcpConnect ovex; // OVERLAPPED extened
+  OverlappedTcpConnect ovex;
 
   inline explicit Impl(TcpConnect *awaitable) : ovex{awaitable} {}
 };
 
 } // namespace cotask
 
-// TcpRecvOnce
+// RecvOnce
 namespace cotask {
 
-struct OverlappedTcpRecvOnce {
-  OVERLAPPED ov{};
+struct OverlappedTcpRecvOnce : public OVERLAPPED {
   const TcpIoType type = TcpIoType::RecvOnce;
 
   TcpRecvOnce *awaitable;
 
-  inline OverlappedTcpRecvOnce(TcpRecvOnce *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpRecvOnce(TcpRecvOnce *awaitable) : awaitable{awaitable} {}
 
   auto io_succeed(DWORD bytes_recived) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
 struct TcpRecvOnce::Impl {
-  OverlappedTcpRecvOnce ovex; // OVERLAPPED extened
+  OverlappedTcpRecvOnce ovex;
 
   inline explicit Impl(TcpRecvOnce *awaitable) : ovex{awaitable} {}
 };
 
 } // namespace cotask
 
-// TcpRecvAll
+// RecvAll
 namespace cotask {
 
-struct OverlappedTcpRecvAll {
-  OVERLAPPED ov{};
+struct OverlappedTcpRecvAll : public OVERLAPPED {
   const TcpIoType type = TcpIoType::RecvAll;
 
   TcpRecvAll *awaitable;
 
-  inline OverlappedTcpRecvAll(TcpRecvAll *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpRecvAll(TcpRecvAll *awaitable) : awaitable{awaitable} {}
 
   auto io_recived(DWORD bytes_transferred) -> void;
   auto io_request() -> bool;
@@ -118,46 +114,44 @@ struct OverlappedTcpRecvAll {
 };
 
 struct TcpRecvAll::Impl {
-  OverlappedTcpRecvAll ovex; // OVERLAPPED extened
+  OverlappedTcpRecvAll ovex;
 
   inline explicit Impl(TcpRecvAll *awaitable) : ovex{awaitable} {}
 };
 
 } // namespace cotask
 
-// TcpSendOnce
+// SendOnce
 namespace cotask {
 
-struct OverlappedTcpSendOnce {
-  OVERLAPPED ov{};
+struct OverlappedTcpSendOnce : public OVERLAPPED {
   const TcpIoType type = TcpIoType::SendOnce;
 
   TcpSendOnce *awaitable;
 
-  inline OverlappedTcpSendOnce(TcpSendOnce *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpSendOnce(TcpSendOnce *awaitable) : awaitable{awaitable} {}
 
   auto io_succeed(DWORD bytes_sent) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
 struct TcpSendOnce::Impl {
-  OverlappedTcpSendOnce ovex; // OVERLAPPED extened
+  OverlappedTcpSendOnce ovex;
 
   inline explicit Impl(TcpSendOnce *awaitable) : ovex{awaitable} {}
 };
 
 } // namespace cotask
 
-// TcpSendAll
+// SendAll
 namespace cotask {
 
-struct OverlappedTcpSendAll {
-  OVERLAPPED ov{};
+struct OverlappedTcpSendAll : public OVERLAPPED {
   const TcpIoType type = TcpIoType::SendAll;
 
   TcpSendAll *awaitable;
 
-  inline OverlappedTcpSendAll(TcpSendAll *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpSendAll(TcpSendAll *awaitable) : awaitable{awaitable} {}
 
   auto io_sent(DWORD bytes_transferred) -> void;
   auto io_request() -> bool;
@@ -165,7 +159,7 @@ struct OverlappedTcpSendAll {
 };
 
 struct TcpSendAll::Impl {
-  OverlappedTcpSendAll ovex; // OVERLAPPED extened
+  OverlappedTcpSendAll ovex;
 
   inline explicit Impl(TcpSendAll *awaitable) : ovex{awaitable} {}
 };

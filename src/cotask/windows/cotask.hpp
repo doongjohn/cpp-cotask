@@ -26,8 +26,7 @@ enum struct TcpIoType {
   SendAll,
 };
 
-struct TcpOverlapped {
-  OVERLAPPED ov{};
+struct TcpOverlapped : public OVERLAPPED {
   const TcpIoType type;
 };
 

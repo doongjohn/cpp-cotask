@@ -49,13 +49,20 @@ auto TaskScheduler::execute() -> void {
   // event loop
   while (not async_tasks.empty()) {
     // run tasks
-    auto task = async_tasks.front();
-    async_tasks.pop_front();
-    if (task.can_resume()) {
-      task.resume();
-    }
-    if (not task.done()) {
-      async_tasks.push_back(task);
+    auto c = async_tasks.size();
+    while (true) {
+      auto task = async_tasks.front();
+      async_tasks.pop_front();
+      if (task.can_resume()) {
+        task.resume();
+      }
+      if (not task.done()) {
+        async_tasks.push_back(task);
+      }
+      --c;
+      if (c == 0) {
+        break;
+      }
     }
 
     // destroy ended coroutine handles
@@ -71,9 +78,8 @@ auto TaskScheduler::execute() -> void {
 
     auto entries = std::array<OVERLAPPED_ENTRY, 10>{};
     auto num_entries = ULONG{};
-    auto timeout = impl->io_task_count == 0 ? 0 : 1;
     if (not ::GetQueuedCompletionStatusEx(impl->iocp_handle, entries.data(), static_cast<ULONG>(entries.size()),
-                                          &num_entries, timeout, FALSE)) {
+                                          &num_entries, 1, FALSE)) {
       const auto err_code = ::GetLastError();
       if (err_code == WAIT_TIMEOUT) {
         continue;

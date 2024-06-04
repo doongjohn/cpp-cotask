@@ -14,6 +14,7 @@
   }
 
   auto &conn_socket = accept_result.accept_socket;
+  conn_socket.assoc_iocp();
   while (true) {
     std::cout << std::format("server {} - send\n", n);
     auto send_msg = std::string{"hello from tcp server!"};

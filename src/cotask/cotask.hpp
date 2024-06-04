@@ -15,14 +15,17 @@ struct ScheduledTask {
   bool *await_subtask = nullptr;
 
   inline ScheduledTask(std::coroutine_handle<> cohandle, bool *await_subtask)
-      : cohandle{cohandle}, await_subtask{await_subtask} {}
+      : cohandle{cohandle}, await_subtask{await_subtask} {
+    assert(cohandle != nullptr);
+    assert(await_subtask != nullptr);
+  }
 
   [[nodiscard]] inline auto done() const noexcept -> bool {
     return cohandle.done();
   }
 
   [[nodiscard]] inline auto can_resume() const noexcept -> bool {
-    return not cohandle.done() and (await_subtask == nullptr or not *await_subtask);
+    return not cohandle.done() and not *await_subtask;
   }
 
   inline auto resume() const -> void {
@@ -131,14 +134,15 @@ struct Task<void> {
     return cohandle.done();
   }
 
-  template <typename TaskT>
-  inline auto await_suspend(std::coroutine_handle<Task::promise_type> outer_cohandle) const noexcept -> void {
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
     promise.outer_cohandle = outer_cohandle;
     promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
     *promise.outer_await_subtask = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> outer_cohandle) const noexcept -> void {
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
     promise.outer_cohandle = outer_cohandle;
     promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
     *promise.outer_await_subtask = true;
@@ -203,14 +207,15 @@ struct Task {
     return cohandle.done();
   }
 
-  template <typename TaskT>
-  inline auto await_suspend(std::coroutine_handle<Task::promise_type> outer_cohandle) const noexcept -> void {
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
     promise.outer_cohandle = outer_cohandle;
     promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
     *promise.outer_await_subtask = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> outer_cohandle) const noexcept -> void {
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
     promise.outer_cohandle = outer_cohandle;
     promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
     *promise.outer_await_subtask = true;

@@ -4,6 +4,8 @@ C++ 20 coroutine task
 
 ## Features
 
+- Windows: IOCP
+
 - asnyc file read
   - [x] read to buf
   - [x] read all

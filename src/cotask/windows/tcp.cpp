@@ -21,18 +21,9 @@ TcpSocket::~TcpSocket() {
   std::destroy_at(impl);
 }
 
-auto TcpSocket::operator=(const TcpSocket &other) -> TcpSocket & {
-  if (this == &other) {
-    return *this;
-  }
-  *impl = *other.impl;
-  ts = other.ts;
-  return *this;
-}
-
 } // namespace cotask
 
-// TcpBind
+// Bind
 namespace cotask {
 
 auto TcpSocket::bind(uint16_t port) -> bool {
@@ -44,26 +35,15 @@ auto TcpSocket::bind(uint16_t port) -> bool {
     return false;
   }
 
-  // SO_CONDITIONAL_ACCEPT
-  // https://programmingdiary.tistory.com/4
-
-  auto addr = sockaddr_in{};
+  auto addr = SOCKADDR_IN{};
   addr.sin_family = AF_INET;
   addr.sin_addr.S_un.S_addr = ::htonl(INADDR_ANY);
   addr.sin_port = ::htons(port);
 
-  if (::bind(impl->socket, (sockaddr *)&addr, sizeof(addr)) != 0) {
+  if (::bind(impl->socket, (SOCKADDR *)&addr, sizeof(addr)) != 0) {
     const auto err_code = ::WSAGetLastError();
     std::cerr << utils::with_location(std::format("socket bind failed: {}", err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    return false;
-  }
-
-  if (not ::CreateIoCompletionPort(std::bit_cast<HANDLE>(impl->socket), ts.impl->iocp_handle, (ULONG_PTR)this, 0)) {
-    const auto err_code = ::GetLastError();
-    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
-              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    ::closesocket(impl->socket);
     return false;
   }
 
@@ -72,10 +52,18 @@ auto TcpSocket::bind(uint16_t port) -> bool {
 
 } // namespace cotask
 
-// TcpListen
+// Listen
 namespace cotask {
 
 auto TcpSocket::listen() -> bool {
+  if (not ::CreateIoCompletionPort(std::bit_cast<HANDLE>(impl->socket), ts.impl->iocp_handle, (ULONG_PTR)this, 0)) {
+    const auto err_code = ::GetLastError();
+    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
+              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+    ::closesocket(impl->socket);
+    return false;
+  }
+
   if (::listen(impl->socket, SOMAXCONN) != 0) {
     const auto err_code = ::WSAGetLastError();
     std::cerr << utils::with_location(std::format("listen failed: {}", err_code))
@@ -88,7 +76,7 @@ auto TcpSocket::listen() -> bool {
 
 } // namespace cotask
 
-// TcpAccept
+// Accept
 namespace cotask {
 
 auto OverlappedTcpAccept::io_succeed() -> void {
@@ -97,17 +85,6 @@ auto OverlappedTcpAccept::io_succeed() -> void {
 
   if (awaitable->await_subtask != nullptr) {
     *awaitable->await_subtask = false;
-  }
-
-  auto socket = awaitable->accept_socket.impl->socket;
-  auto iocp_handle = awaitable->ts.impl->iocp_handle;
-  if (not ::CreateIoCompletionPort(std::bit_cast<HANDLE>(socket), iocp_handle, (ULONG_PTR)&awaitable->accept_socket,
-                                   0)) {
-    const auto err_code = ::GetLastError();
-    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
-              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    ::closesocket(socket);
-    awaitable->success = false;
   }
 }
 
@@ -144,12 +121,12 @@ auto TcpSocket::accept() -> TcpAccept {
   }
 
   // accept
-  auto init_buf = char{};
+  // FIXME: life time of awaitable.impl->ovex must be valid until the io is complete
+  alignas(8) uint8_t addr_buf[88]{};
   auto bytes_recived = DWORD{};
-  auto addr_size = DWORD{sizeof(sockaddr_in) + 16};
-  auto accept_result = ::AcceptEx(impl->socket, accept_socket, &init_buf, 0, addr_size, addr_size, &bytes_recived,
-                                  (OVERLAPPED *)&awaitable.impl->ovex);
-  if (not accept_result) {
+  auto accept_success = ::AcceptEx(impl->socket, accept_socket, addr_buf, 0, sizeof(addr_buf) / 2, sizeof(addr_buf) / 2,
+                                   &bytes_recived, &awaitable.impl->ovex);
+  if (not accept_success) {
     const auto err_code = ::WSAGetLastError();
     if (err_code != WSA_IO_PENDING) {
       std::cerr << utils::with_location(std::format("AcceptEx failed: {}", ::WSAGetLastError()))
@@ -158,9 +135,8 @@ auto TcpSocket::accept() -> TcpAccept {
     }
   }
 
-  awaitable.accept_socket = TcpSocket{ts};
-  awaitable.accept_socket.impl->socket = accept_socket;
   awaitable.success = true;
+  awaitable.accept_socket.impl->socket = accept_socket;
 
   ts.impl->io_task_count += 1;
   return awaitable;
@@ -168,7 +144,7 @@ auto TcpSocket::accept() -> TcpAccept {
 
 } // namespace cotask
 
-// TcpConnect
+// Connect
 namespace cotask {
 
 auto OverlappedTcpConnect::io_succeed() -> void {
@@ -203,6 +179,7 @@ TcpConnect::~TcpConnect() {
 auto TcpSocket::connect(std::string_view ip, std::string_view port) -> TcpConnect {
   auto awaitable = TcpConnect{ts};
 
+  // TODO: Do I need to make a new socket for each connection?
   impl->socket = ::WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_IP, nullptr, 0, WSA_FLAG_OVERLAPPED);
   if (impl->socket == INVALID_SOCKET) {
     const auto err_code = ::WSAGetLastError();
@@ -238,14 +215,6 @@ auto TcpSocket::connect(std::string_view ip, std::string_view port) -> TcpConnec
     return awaitable;
   }
 
-  if (not ::CreateIoCompletionPort(std::bit_cast<HANDLE>(impl->socket), ts.impl->iocp_handle, (ULONG_PTR)this, 0)) {
-    const auto err_code = ::GetLastError();
-    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
-              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    ::closesocket(impl->socket);
-    return awaitable;
-  }
-
   // resolve the server address and port
   auto connect_addr_list = PADDRINFOA{};
   auto addr_hints = addrinfo{};
@@ -259,12 +228,21 @@ auto TcpSocket::connect(std::string_view ip, std::string_view port) -> TcpConnec
     return awaitable;
   }
 
-  // connect
-  auto connect_result = impl->fnConnectEx(impl->socket, connect_addr_list->ai_addr, sizeof(sockaddr), nullptr, 0,
-                                          nullptr, (OVERLAPPED *)&awaitable.impl->ovex);
-  ::freeaddrinfo(connect_addr_list);
+  // setup iocp
+  if (not ::CreateIoCompletionPort(std::bit_cast<HANDLE>(impl->socket), ts.impl->iocp_handle, (ULONG_PTR)this, 0)) {
+    const auto err_code = ::GetLastError();
+    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
+              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+    ::closesocket(impl->socket);
+    return awaitable;
+  }
 
-  if (not connect_result) {
+  // connect
+  // FIXME: life time of awaitable.impl->ovex must be valid until the io is complete
+  auto connect_success = impl->fnConnectEx(impl->socket, connect_addr_list->ai_addr, sizeof(sockaddr), nullptr, 0,
+                                           nullptr, &awaitable.impl->ovex);
+  ::freeaddrinfo(connect_addr_list);
+  if (not connect_success) {
     const auto err_code = ::WSAGetLastError();
     if (err_code != WSA_IO_PENDING) {
       std::cerr << utils::with_location(std::format("ConnectEx failed: {}", err_code))
@@ -281,7 +259,7 @@ auto TcpSocket::connect(std::string_view ip, std::string_view port) -> TcpConnec
 
 } // namespace cotask
 
-// TcpClose
+// Close
 namespace cotask {
 
 auto TcpSocket::close() -> bool {
@@ -315,9 +293,20 @@ auto TcpSocket::close() -> bool {
   return true;
 }
 
+auto TcpSocket::assoc_iocp() -> bool {
+  if (not ::CreateIoCompletionPort(std::bit_cast<HANDLE>(impl->socket), ts.impl->iocp_handle, (ULONG_PTR)this, 0)) {
+    const auto err_code = ::GetLastError();
+    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
+              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+    ::closesocket(impl->socket);
+    return false;
+  }
+  return true;
+}
+
 } // namespace cotask
 
-// TcpRecvOnce
+// RecvOnce
 namespace cotask {
 
 auto OverlappedTcpRecvOnce::io_succeed(DWORD bytes_recived) -> void {
@@ -353,16 +342,16 @@ TcpRecvOnce::~TcpRecvOnce() {
 auto TcpSocket::recv_once(std::span<char> buf) -> TcpRecvOnce {
   auto awaitable = TcpRecvOnce{ts, buf};
 
+  std::cout << "bufsize: " << buf.size() << '\n';
   auto wsa_buf = WSABUF{
     .len = static_cast<ULONG>(buf.size()),
     .buf = buf.data(),
   };
-  auto bytes_recived = ULONG{};
   auto flags = ULONG{};
 
-  const auto recv_result =
-    ::WSARecv(impl->socket, &wsa_buf, 1ul, &bytes_recived, &flags, (OVERLAPPED *)&awaitable.impl->ovex, nullptr);
-
+  // FIXME: life time of awaitable.impl->ovex must be valid until the io is complete
+  auto recv_result =
+    ::WSARecv(impl->socket, &wsa_buf, 1ul, (PULONG)&awaitable.bytes_received, &flags, &awaitable.impl->ovex, nullptr);
   if (recv_result != 0) {
     const auto err_code = ::WSAGetLastError();
     if (err_code != WSA_IO_PENDING) {
@@ -373,6 +362,7 @@ auto TcpSocket::recv_once(std::span<char> buf) -> TcpRecvOnce {
   }
 
   awaitable.success = true;
+  awaitable.buf = {buf.data(), awaitable.bytes_received};
 
   ts.impl->io_task_count += 1;
   return awaitable;
@@ -380,7 +370,7 @@ auto TcpSocket::recv_once(std::span<char> buf) -> TcpRecvOnce {
 
 } // namespace cotask
 
-// TcpRecvAll
+// RecvAll
 namespace cotask {
 
 auto OverlappedTcpRecvAll::io_recived(DWORD bytes_recived) -> void {
@@ -424,7 +414,7 @@ auto TcpSocket::recv_all(std::span<char> buf) -> TcpRecvAll {
 
 } // namespace cotask
 
-// TcpSendOnce
+// SendOnce
 namespace cotask {
 
 auto OverlappedTcpSendOnce::io_succeed(DWORD bytes_sent) -> void {
@@ -464,11 +454,10 @@ auto TcpSocket::send_once(std::span<char> buf) -> TcpSendOnce {
     .len = static_cast<ULONG>(buf.size()),
     .buf = buf.data(),
   };
-  auto bytes_sent = ULONG{};
 
-  const auto send_result =
-    ::WSASend(impl->socket, &wsa_buf, 1ul, &bytes_sent, 0, (OVERLAPPED *)&awaitable.impl->ovex, nullptr);
-
+  // FIXME: life time of awaitable.impl->ovex must be valid until the io is complete
+  auto send_result =
+    ::WSASend(impl->socket, &wsa_buf, 1ul, (PULONG)&awaitable.bytes_sent, 0, &awaitable.impl->ovex, nullptr);
   if (send_result != 0) {
     const auto err_code = ::WSAGetLastError();
     if (err_code != WSA_IO_PENDING) {
@@ -486,7 +475,7 @@ auto TcpSocket::send_once(std::span<char> buf) -> TcpSendOnce {
 
 } // namespace cotask
 
-// TcpSendAll
+// SendAll
 namespace cotask {
 
 auto OverlappedTcpSendAll::io_sent(DWORD bytes_sent) -> void {
