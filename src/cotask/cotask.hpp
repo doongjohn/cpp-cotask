@@ -7,6 +7,25 @@
 
 namespace cotask {
 
+enum struct AsyncIoType {
+  FileReadBuf,
+  FileReadAll,
+  TcpSocket,
+};
+
+struct AsyncIoBase {
+  const AsyncIoType type;
+};
+
+enum struct TcpIoType {
+  Accept,
+  Connect,
+  RecvOnce,
+  RecvAll,
+  SendOnce,
+  SendAll,
+};
+
 auto init() -> void;
 auto deinit() -> void;
 
@@ -42,7 +61,7 @@ struct TaskScheduler {
 
 public:
   struct Impl;
-  std::uint8_t impl_storage[8]{};
+  alignas(8) std::uint8_t impl_storage[8]{};
   Impl *impl;
 
 private:
@@ -231,24 +250,5 @@ template <typename T>
 inline auto TaskScheduler::schedule_from_sync(Task<T> &&task) -> void {
   from_sync_tasks.push_back(task.cohandle);
 }
-
-enum struct AsyncIoType {
-  FileReadBuf,
-  FileReadAll,
-  TcpSocket,
-};
-
-struct AsyncIoBase {
-  const AsyncIoType type;
-};
-
-enum struct TcpIoType {
-  Accept,
-  Connect,
-  RecvOnce,
-  RecvAll,
-  SendOnce,
-  SendAll,
-};
 
 } // namespace cotask

@@ -59,9 +59,8 @@ public:
 struct TcpAcceptResult {
   bool finished = false;
   bool success = false;
-  TcpSocket accept_socket;
 
-  TcpAcceptResult(bool finished, bool success, TcpSocket accept_socket);
+  TcpAcceptResult(bool finished, bool success, TcpSocket *accept_socket);
   inline TcpAcceptResult(const TcpAcceptResult &other) = delete;
 };
 
@@ -71,7 +70,7 @@ struct TcpAccept {
 
 public:
   struct Impl;
-  std::uint8_t impl_storage[48]{};
+  alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
   TcpSocket &tcp_socket;
@@ -81,10 +80,10 @@ public:
 
   bool finished = false;
   bool success = false;
-  TcpSocket accept_socket;
+  TcpSocket *accept_socket;
 
 public:
-  TcpAccept(TcpSocket *sock);
+  TcpAccept(TcpSocket *sock, TcpSocket *accept_socket);
   inline TcpAccept(const TcpAccept &other) = delete;
   ~TcpAccept();
 
@@ -123,7 +122,7 @@ struct TcpConnect {
 
 public:
   struct Impl;
-  std::uint8_t impl_storage[48]{};
+  alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
   TcpSocket &tcp_socket;
@@ -186,7 +185,7 @@ struct TcpRecvOnce {
 
 public:
   struct Impl;
-  std::uint8_t impl_storage[48]{};
+  alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
   TcpSocket &tcp_socket;
@@ -239,7 +238,7 @@ struct TcpRecvAll {
 
 public:
   struct Impl;
-  std::uint8_t impl_storage[48]{};
+  alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
   TcpSocket &tcp_socket;
@@ -297,7 +296,7 @@ struct TcpSendOnce {
 
 public:
   struct Impl;
-  std::uint8_t impl_storage[48]{};
+  alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
   TcpSocket &tcp_socket;
@@ -350,7 +349,7 @@ struct TcpSendAll {
 
 public:
   struct Impl;
-  std::uint8_t impl_storage[48]{};
+  alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
   TcpSocket &tcp_socket;

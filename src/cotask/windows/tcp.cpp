@@ -66,6 +66,7 @@ auto TcpSocket::bind(std::uint16_t port) -> bool {
 namespace cotask {
 
 auto TcpSocket::listen() -> bool {
+  // setup iocp
   if (not ::CreateIoCompletionPort(impl->get_handle(), ts.impl->iocp_handle, (ULONG_PTR)this, 0)) {
     const auto err_code = ::GetLastError();
     std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
@@ -74,10 +75,12 @@ auto TcpSocket::listen() -> bool {
     return false;
   }
 
+  // listen
   if (::listen(impl->socket, SOMAXCONN) != 0) {
     const auto err_code = ::WSAGetLastError();
     std::cerr << utils::with_location(std::format("listen failed: {}", err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+    ::closesocket(impl->socket);
     return false;
   }
 
@@ -89,18 +92,18 @@ auto TcpSocket::listen() -> bool {
 // Accept
 namespace cotask {
 
-TcpAcceptResult::TcpAcceptResult(bool finished, bool success, TcpSocket accept_socket)
-    : finished{finished}, success{success}, accept_socket{accept_socket} {
-  if (not finished or not success) {
-    return;
-  }
-  if (not ::CreateIoCompletionPort(accept_socket.impl->get_handle(), accept_socket.ts.impl->iocp_handle,
-                                   (ULONG_PTR) & this->accept_socket, 0)) {
-    const auto err_code = ::GetLastError();
-    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
-              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    ::closesocket(accept_socket.impl->socket);
-    success = false;
+TcpAcceptResult::TcpAcceptResult(bool finished, bool success, TcpSocket *accept_socket)
+    : finished{finished}, success{success} {
+  if (finished and success) {
+    // setup iocp
+    if (not ::CreateIoCompletionPort(accept_socket->impl->get_handle(), accept_socket->ts.impl->iocp_handle,
+                                     (ULONG_PTR)accept_socket, 0)) {
+      const auto err_code = ::GetLastError();
+      std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
+                << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+      ::closesocket(accept_socket->impl->socket);
+      success = false;
+    }
   }
 }
 
@@ -125,7 +128,8 @@ auto OverlappedTcpAccept::io_failed(DWORD err_code) -> void {
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 
-TcpAccept::TcpAccept(TcpSocket *sock) : tcp_socket{*sock}, ts{sock->ts}, accept_socket{ts} {
+TcpAccept::TcpAccept(TcpSocket *sock, TcpSocket *accept_socket)
+    : tcp_socket{*sock}, ts{sock->ts}, accept_socket{accept_socket} {
   CONSTRUCT_IMPL(this);
 
   // create socket
@@ -147,12 +151,13 @@ TcpAccept::TcpAccept(TcpSocket *sock) : tcp_socket{*sock}, ts{sock->ts}, accept_
     if (err_code != WSA_IO_PENDING) {
       std::cerr << utils::with_location(std::format("AcceptEx failed: {}", ::WSAGetLastError()))
                 << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+      ::closesocket(conn_socket);
       return;
     }
   }
 
   success = true;
-  accept_socket.impl->socket = conn_socket;
+  accept_socket->impl->socket = conn_socket;
 }
 
 TcpAccept::~TcpAccept() {
@@ -211,16 +216,16 @@ TcpConnect::TcpConnect(TcpSocket *sock, std::string_view ip, std::string_view po
     }
   }
 
-  // bind addr
+  // bind
   auto addr = sockaddr_in{};
   addr.sin_family = AF_INET;
   addr.sin_addr.S_un.S_addr = ::htonl(INADDR_ANY);
   addr.sin_port = ::htons(0);
-
   if (::bind(tcp_socket.impl->socket, (sockaddr *)&addr, sizeof(addr)) != 0) {
     const auto err_code = ::WSAGetLastError();
     std::cerr << utils::with_location(std::format("socket bind failed: {}", err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+    ::closesocket(tcp_socket.impl->socket);
     return;
   }
 
