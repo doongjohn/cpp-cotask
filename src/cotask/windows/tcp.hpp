@@ -1,7 +1,8 @@
 #pragma once
 
-#include "cotask.hpp"
 #include <cotask/tcp.hpp>
+
+#include <bit>
 
 #include <winsock2.h>
 #include <mswsock.h>
@@ -11,14 +12,12 @@
 namespace cotask {
 
 struct TcpSocket::Impl {
-  const AsyncIoType type = AsyncIoType::TcpSocket;
-
   SOCKET socket = INVALID_SOCKET;
   LPFN_CONNECTEX fnConnectEx = nullptr;
   // TODO: DisconnectEx
 
   inline Impl() = default;
-  inline Impl(const Impl &other) : socket{other.socket}, fnConnectEx{other.fnConnectEx} {}
+  inline Impl(const Impl &other) = default;
 
   inline auto operator=(const Impl &other) -> Impl & {
     if (this == &other) {
@@ -27,6 +26,10 @@ struct TcpSocket::Impl {
     this->socket = other.socket;
     this->fnConnectEx = other.fnConnectEx;
     return *this;
+  }
+
+  inline auto get_handle() -> HANDLE {
+    return std::bit_cast<HANDLE>(socket);
   }
 };
 
@@ -40,7 +43,7 @@ struct OverlappedTcpAccept : public OVERLAPPED {
 
   TcpAccept *awaitable;
 
-  inline explicit OverlappedTcpAccept(TcpAccept *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpAccept(TcpAccept *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
   auto io_succeed() -> void;
   auto io_failed(DWORD err_code) -> void;
@@ -62,7 +65,7 @@ struct OverlappedTcpConnect : public OVERLAPPED {
 
   TcpConnect *awaitable;
 
-  inline explicit OverlappedTcpConnect(TcpConnect *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpConnect(TcpConnect *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
   auto io_succeed() -> void;
   auto io_failed(DWORD err_code) -> void;
@@ -84,7 +87,7 @@ struct OverlappedTcpRecvOnce : public OVERLAPPED {
 
   TcpRecvOnce *awaitable;
 
-  inline explicit OverlappedTcpRecvOnce(TcpRecvOnce *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpRecvOnce(TcpRecvOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
   auto io_succeed(DWORD bytes_recived) -> void;
   auto io_failed(DWORD err_code) -> void;
@@ -106,7 +109,7 @@ struct OverlappedTcpRecvAll : public OVERLAPPED {
 
   TcpRecvAll *awaitable;
 
-  inline explicit OverlappedTcpRecvAll(TcpRecvAll *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpRecvAll(TcpRecvAll *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
   auto io_recived(DWORD bytes_transferred) -> void;
   auto io_request() -> bool;
@@ -129,7 +132,7 @@ struct OverlappedTcpSendOnce : public OVERLAPPED {
 
   TcpSendOnce *awaitable;
 
-  inline explicit OverlappedTcpSendOnce(TcpSendOnce *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpSendOnce(TcpSendOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
   auto io_succeed(DWORD bytes_sent) -> void;
   auto io_failed(DWORD err_code) -> void;
@@ -151,7 +154,7 @@ struct OverlappedTcpSendAll : public OVERLAPPED {
 
   TcpSendAll *awaitable;
 
-  inline explicit OverlappedTcpSendAll(TcpSendAll *awaitable) : awaitable{awaitable} {}
+  inline explicit OverlappedTcpSendAll(TcpSendAll *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
   auto io_sent(DWORD bytes_transferred) -> void;
   auto io_request() -> bool;

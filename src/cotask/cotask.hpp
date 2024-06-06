@@ -12,12 +12,12 @@ auto deinit() -> void;
 
 struct ScheduledTask {
   std::coroutine_handle<> cohandle;
-  bool *await_subtask = nullptr;
+  bool *is_waiting;
 
-  inline ScheduledTask(std::coroutine_handle<> cohandle, bool *await_subtask)
-      : cohandle{cohandle}, await_subtask{await_subtask} {
+  inline ScheduledTask(std::coroutine_handle<> cohandle, bool *is_waiting)
+      : cohandle{cohandle}, is_waiting{is_waiting} {
     assert(cohandle != nullptr);
-    assert(await_subtask != nullptr);
+    assert(is_waiting != nullptr);
   }
 
   [[nodiscard]] inline auto done() const noexcept -> bool {
@@ -25,7 +25,7 @@ struct ScheduledTask {
   }
 
   [[nodiscard]] inline auto can_resume() const noexcept -> bool {
-    return not cohandle.done() and not *await_subtask;
+    return not cohandle.done() and not *is_waiting;
   }
 
   inline auto resume() const -> void {
@@ -42,7 +42,7 @@ struct TaskScheduler {
 
 public:
   struct Impl;
-  uint8_t impl_storage[40]{};
+  std::uint8_t impl_storage[8]{};
   Impl *impl;
 
 private:
@@ -52,7 +52,7 @@ private:
 
 public:
   TaskScheduler();
-  TaskScheduler(const TaskScheduler &other) = delete;
+  inline TaskScheduler(const TaskScheduler &other) = delete;
   ~TaskScheduler();
 
 public:
@@ -79,8 +79,8 @@ private:
 struct TaskPromise {
   TaskScheduler &ts;
   std::coroutine_handle<> outer_cohandle = nullptr;
-  bool *outer_await_subtask = nullptr;
-  bool await_subtask = false;
+  bool *outer_is_waiting = nullptr;
+  bool is_waiting = false;
 
   inline explicit TaskPromise(TaskScheduler &ts) : ts(ts) {}
 };
@@ -101,8 +101,8 @@ struct Task<void> {
       return {};
     }
     inline auto final_suspend() noexcept -> std::suspend_always {
-      if (outer_await_subtask != nullptr) {
-        *outer_await_subtask = false;
+      if (outer_is_waiting != nullptr) {
+        *outer_is_waiting = false;
       }
       return {};
     }
@@ -116,18 +116,18 @@ struct Task<void> {
   promise_type &promise;
 
   inline explicit Task(const coro_handle cohandle) : cohandle{cohandle}, promise{cohandle.promise()} {
-    promise.ts.schedule_from_task({cohandle, &promise.await_subtask});
+    promise.ts.schedule_from_task({cohandle, &promise.is_waiting});
   }
 
   inline Task(const Task &) = delete;
 
   inline Task(Task &&other) noexcept : cohandle{other.cohandle}, promise{other.promise} {
     promise.outer_cohandle = other.promise.outer_cohandle;
-    promise.outer_await_subtask = other.promise.outer_await_subtask;
-    promise.await_subtask = other.promise.await_subtask;
+    promise.outer_is_waiting = other.promise.outer_is_waiting;
+    promise.is_waiting = other.promise.is_waiting;
     other.cohandle = nullptr;
     other.promise.outer_cohandle = nullptr;
-    other.promise.outer_await_subtask = nullptr;
+    other.promise.outer_is_waiting = nullptr;
   }
 
   [[nodiscard]] inline auto await_ready() const noexcept -> bool {
@@ -137,15 +137,15 @@ struct Task<void> {
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
     promise.outer_cohandle = outer_cohandle;
-    promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
-    *promise.outer_await_subtask = true;
+    promise.outer_is_waiting = &outer_cohandle.promise().is_waiting;
+    *promise.outer_is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
     promise.outer_cohandle = outer_cohandle;
-    promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
-    *promise.outer_await_subtask = true;
+    promise.outer_is_waiting = &outer_cohandle.promise().is_waiting;
+    *promise.outer_is_waiting = true;
   }
 
   inline auto await_resume() const noexcept -> void {
@@ -171,8 +171,8 @@ struct Task {
       return {};
     }
     inline auto final_suspend() noexcept -> std::suspend_always {
-      if (outer_await_subtask != nullptr) {
-        *outer_await_subtask = false;
+      if (outer_is_waiting != nullptr) {
+        *outer_is_waiting = false;
       }
       return {};
     }
@@ -188,19 +188,19 @@ struct Task {
   promise_type &promise;
 
   inline explicit Task(const coro_handle cohandle) : cohandle{cohandle}, promise{cohandle.promise()} {
-    promise.ts.schedule_from_task({cohandle, &promise.await_subtask});
+    promise.ts.schedule_from_task({cohandle, &promise.is_waiting});
   }
 
   inline Task(const Task &) = delete;
 
   inline Task(Task &&other) noexcept : cohandle{other.cohandle}, promise{other.promise} {
     promise.outer_cohandle = other.promise.outer_cohandle;
-    promise.outer_await_subtask = other.promise.outer_await_subtask;
-    promise.await_subtask = other.promise.await_subtask;
+    promise.outer_is_waiting = other.promise.outer_is_waiting;
+    promise.is_waiting = other.promise.is_waiting;
     promise.result = other.promise.result;
     other.cohandle = nullptr;
     other.promise.outer_cohandle = nullptr;
-    other.promise.outer_await_subtask = nullptr;
+    other.promise.outer_is_waiting = nullptr;
   }
 
   [[nodiscard]] inline auto await_ready() const noexcept -> bool {
@@ -210,15 +210,15 @@ struct Task {
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
     promise.outer_cohandle = outer_cohandle;
-    promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
-    *promise.outer_await_subtask = true;
+    promise.outer_is_waiting = &outer_cohandle.promise().is_waiting;
+    *promise.outer_is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
     promise.outer_cohandle = outer_cohandle;
-    promise.outer_await_subtask = &outer_cohandle.promise().await_subtask;
-    *promise.outer_await_subtask = true;
+    promise.outer_is_waiting = &outer_cohandle.promise().is_waiting;
+    *promise.outer_is_waiting = true;
   }
 
   [[nodiscard]] inline auto await_resume() const noexcept -> T {
@@ -231,5 +231,24 @@ template <typename T>
 inline auto TaskScheduler::schedule_from_sync(Task<T> &&task) -> void {
   from_sync_tasks.push_back(task.cohandle);
 }
+
+enum struct AsyncIoType {
+  FileReadBuf,
+  FileReadAll,
+  TcpSocket,
+};
+
+struct AsyncIoBase {
+  const AsyncIoType type;
+};
+
+enum struct TcpIoType {
+  Accept,
+  Connect,
+  RecvOnce,
+  RecvAll,
+  SendOnce,
+  SendAll,
+};
 
 } // namespace cotask

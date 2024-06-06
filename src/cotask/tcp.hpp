@@ -29,8 +29,11 @@ struct TcpSocket {
   friend TaskScheduler;
 
 public:
+  const AsyncIoType type = AsyncIoType::TcpSocket;
+
+public:
   struct Impl;
-  uint8_t impl_storage[24]{};
+  alignas(8) std::uint8_t impl_storage[16]{};
   Impl *impl;
 
   TaskScheduler &ts;
@@ -45,27 +48,21 @@ public:
     return std::memcmp(impl_storage, other.impl_storage, sizeof(impl_storage)) == 0 and ts == other.ts;
   }
 
+  auto operator=(const TcpSocket &other) -> TcpSocket &;
+
 public:
-  auto bind(uint16_t port) -> bool;
+  auto bind(std::uint16_t port) -> bool;
   auto listen() -> bool;
-  auto accept() -> TcpAccept;
-  auto connect(std::string_view ip, std::string_view port) -> TcpConnect;
   auto close() -> bool;
-
-  // TOOD: make a better api
-  auto assoc_iocp() -> bool;
-
-  auto recv_once(std::span<char> buf) -> TcpRecvOnce;
-  auto recv_all(std::span<char> buf) -> TcpRecvAll;
-
-  auto send_once(std::span<char> buf) -> TcpSendOnce;
-  auto send_all(std::span<char> buf) -> TcpSendAll;
 };
 
 struct TcpAcceptResult {
   bool finished = false;
   bool success = false;
   TcpSocket accept_socket;
+
+  TcpAcceptResult(bool finished, bool success, TcpSocket accept_socket);
+  inline TcpAcceptResult(const TcpAcceptResult &other) = delete;
 };
 
 struct TcpAccept {
@@ -74,20 +71,21 @@ struct TcpAccept {
 
 public:
   struct Impl;
-  uint8_t impl_storage[48]{};
+  std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+  TcpSocket &tcp_socket;
   TaskScheduler &ts;
   std::coroutine_handle<> cohandle = nullptr;
-  bool *await_subtask = nullptr;
+  bool *is_waiting = nullptr;
 
   bool finished = false;
   bool success = false;
-
   TcpSocket accept_socket;
 
 public:
-  TcpAccept(TaskScheduler &ts);
+  TcpAccept(TcpSocket *sock);
+  inline TcpAccept(const TcpAccept &other) = delete;
   ~TcpAccept();
 
 public:
@@ -95,25 +93,22 @@ public:
     return not success;
   }
 
-  template <typename T>
-  inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
   inline auto await_resume() -> TcpAcceptResult {
-    return {
-      .finished = finished,
-      .success = success,
-      .accept_socket = accept_socket,
-    };
+    return {finished, success, accept_socket};
   }
 };
 
@@ -128,18 +123,20 @@ struct TcpConnect {
 
 public:
   struct Impl;
-  uint8_t impl_storage[48]{};
+  std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+  TcpSocket &tcp_socket;
   TaskScheduler &ts;
   std::coroutine_handle<> cohandle = nullptr;
-  bool *await_subtask = nullptr;
+  bool *is_waiting = nullptr;
 
   bool finished = false;
   bool success = false;
 
 public:
-  TcpConnect(TaskScheduler &ts);
+  TcpConnect(TcpSocket *sock, std::string_view ip, std::string_view port);
+  inline TcpConnect(const TcpConnect &other) = delete;
   ~TcpConnect();
 
 public:
@@ -147,17 +144,18 @@ public:
     return not success;
   }
 
-  template <typename T>
-  inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
   inline auto await_resume() -> TcpConnectResult {
@@ -188,21 +186,23 @@ struct TcpRecvOnce {
 
 public:
   struct Impl;
-  uint8_t impl_storage[48]{};
+  std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+  TcpSocket &tcp_socket;
   TaskScheduler &ts;
   std::coroutine_handle<> cohandle = nullptr;
-  bool *await_subtask = nullptr;
+  bool *is_waiting = nullptr;
 
   bool finished = false;
   bool success = false;
 
   std::span<char> buf;
-  uint32_t bytes_received = 0;
+  std::uint32_t bytes_received = 0;
 
 public:
-  TcpRecvOnce(TaskScheduler &ts, std::span<char> buf);
+  TcpRecvOnce(TcpSocket *sock, std::span<char> buf);
+  inline TcpRecvOnce(const TcpRecvOnce &other) = delete;
   ~TcpRecvOnce();
 
 public:
@@ -210,24 +210,25 @@ public:
     return not success;
   }
 
-  template <typename T>
-  inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
   inline auto await_resume() -> TcpRecvResult {
     return {
       .finished = finished,
       .success = success,
-      .buf = buf,
+      .buf = {buf.data(), bytes_received},
     };
   }
 };
@@ -238,12 +239,13 @@ struct TcpRecvAll {
 
 public:
   struct Impl;
-  uint8_t impl_storage[48]{};
+  std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+  TcpSocket &tcp_socket;
   TaskScheduler &ts;
   std::coroutine_handle<> cohandle = nullptr;
-  bool *await_subtask = nullptr;
+  bool *is_waiting = nullptr;
 
   bool finished = false;
   bool success = false;
@@ -251,7 +253,8 @@ public:
   std::span<char> buf;
 
 public:
-  TcpRecvAll(TaskScheduler &ts, std::span<char> buf);
+  TcpRecvAll(TcpSocket *sock, std::span<char> buf);
+  inline TcpRecvAll(const TcpRecvAll &other) = delete;
   ~TcpRecvAll();
 
 public:
@@ -259,17 +262,18 @@ public:
     return not success;
   }
 
-  template <typename T>
-  inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
   inline auto await_resume() -> TcpRecvResult {
@@ -284,7 +288,7 @@ public:
 struct TcpSendResult {
   bool finished = false;
   bool success = false;
-  uint32_t bytes_sent = 0;
+  std::uint32_t bytes_sent = 0;
 };
 
 struct TcpSendOnce {
@@ -293,21 +297,23 @@ struct TcpSendOnce {
 
 public:
   struct Impl;
-  uint8_t impl_storage[48]{};
+  std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+  TcpSocket &tcp_socket;
   TaskScheduler &ts;
   std::coroutine_handle<> cohandle = nullptr;
-  bool *await_subtask = nullptr;
+  bool *is_waiting = nullptr;
 
   bool finished = false;
   bool success = false;
 
   std::span<char> buf;
-  uint32_t bytes_sent = 0;
+  std::uint32_t bytes_sent = 0;
 
 public:
-  TcpSendOnce(TaskScheduler &ts, std::span<char> buf);
+  TcpSendOnce(TcpSocket *sock, std::span<char> buf);
+  inline TcpSendOnce(const TcpSendOnce &other) = delete;
   ~TcpSendOnce();
 
 public:
@@ -315,17 +321,18 @@ public:
     return not success;
   }
 
-  template <typename T>
-  inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
   inline auto await_resume() -> TcpSendResult {
@@ -343,21 +350,22 @@ struct TcpSendAll {
 
 public:
   struct Impl;
-  uint8_t impl_storage[48]{};
+  std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+  TcpSocket &tcp_socket;
   TaskScheduler &ts;
   std::coroutine_handle<> cohandle = nullptr;
-  bool *await_subtask = nullptr;
+  bool *is_waiting = nullptr;
 
   bool finished = false;
   bool success = false;
 
   std::span<char> buf;
-  uint32_t bytes_sent = 0;
+  std::uint32_t bytes_sent = 0;
 
 public:
-  TcpSendAll(TaskScheduler &ts, std::span<char> buf);
+  TcpSendAll(TcpSocket *sock, std::span<char> buf);
   ~TcpSendAll();
 
 public:
@@ -365,17 +373,18 @@ public:
     return not success;
   }
 
-  template <typename T>
-  inline auto await_suspend(std::coroutine_handle<typename Task<T>::promise_type> cohandle) noexcept -> void {
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
-  inline auto await_suspend(std::coroutine_handle<Task<void>::promise_type> cohandle) noexcept -> void {
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
-    this->await_subtask = &cohandle.promise().await_subtask;
-    cohandle.promise().await_subtask = true;
+    this->is_waiting = &cohandle.promise().is_waiting;
+    *this->is_waiting = true;
   }
 
   inline auto await_resume() -> TcpSendResult {

@@ -46,6 +46,7 @@ auto main() -> int {
   auto ts = cotask::TaskScheduler{};
   ts.schedule_from_sync(async_fn0(ts));
   ts.schedule_from_sync(async_fn2(ts));
+  ts.schedule_from_sync(async_fn2(ts));
   ts.execute();
 
   return EXIT_SUCCESS;

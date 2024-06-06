@@ -7,32 +7,12 @@
 
 namespace cotask {
 
-enum struct AsyncIoType {
-  FileReadBuf,
-  FileReadAll,
-  TcpSocket,
-};
-
-struct AsyncIoBase {
-  const AsyncIoType type;
-};
-
-enum struct TcpIoType {
-  Accept,
-  Connect,
-  RecvOnce,
-  RecvAll,
-  SendOnce,
-  SendAll,
-};
-
-struct TcpOverlapped : public OVERLAPPED {
+struct OverlappedTcp : public OVERLAPPED {
   const TcpIoType type;
 };
 
 struct TaskScheduler::Impl {
   HANDLE iocp_handle = nullptr;
-  uint64_t io_task_count = 0;
 };
 
 } // namespace cotask

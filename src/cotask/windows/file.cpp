@@ -1,3 +1,4 @@
+#include "cotask.hpp"
 #include "file.hpp"
 #include <cotask/impl.hpp>
 #include <cotask/utils.hpp>
@@ -6,13 +7,14 @@
 
 namespace cotask {
 
-FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, uint64_t offset)
+FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf,
+                         std::uint64_t offset)
     : ts{ts}, path{path}, buf{buf}, offset{offset} {
   CONSTRUCT_IMPL();
 
   // initialize OVERLAPPED
-  impl->ov.Offset = static_cast<uint32_t>(offset);           // low 32bits
-  impl->ov.OffsetHigh = static_cast<uint32_t>(offset >> 32); // high 32bits
+  impl->ov.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
+  impl->ov.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
 
   // open file
   impl->file_handle =
@@ -49,7 +51,6 @@ FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, s
     return;
   }
 
-  ts.impl->io_task_count += 1;
   success = true;
 }
 
@@ -57,25 +58,25 @@ FileReadBuf::~FileReadBuf() {
   std::destroy_at(impl);
 }
 
-auto FileReadBuf::io_recived(uint32_t bytes_transferred) -> void {
+auto FileReadBuf::io_recived(std::uint32_t bytes_transferred) -> void {
   // check finished
   if (bytes_transferred <= buf.size()) {
     ::CloseHandle(impl->file_handle);
     finished = true;
-    if (await_subtask != nullptr) {
-      *await_subtask = false;
+    if (is_waiting != nullptr) {
+      *is_waiting = false;
     }
   }
 }
 
-auto FileReadBuf::io_failed(uint32_t err_code) -> void {
+auto FileReadBuf::io_failed(std::uint32_t err_code) -> void {
   std::cerr << utils::with_location(std::format("FileReadToBuf compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 
   ::CloseHandle(impl->file_handle);
   success = false;
-  if (await_subtask != nullptr) {
-    *await_subtask = false;
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
   }
 }
 
@@ -84,8 +85,8 @@ FileReadAll::FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, s
   CONSTRUCT_IMPL();
 
   // initialize OVERLAPPED
-  impl->ov.Offset = static_cast<uint32_t>(offset);           // low 32bits
-  impl->ov.OffsetHigh = static_cast<uint32_t>(offset >> 32); // high 32bits
+  impl->ov.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
+  impl->ov.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
 
   // open file
   impl->file_handle =
@@ -135,43 +136,42 @@ auto FileReadAll::io_request() -> bool {
     return false;
   }
 
-  ts.impl->io_task_count += 1;
   return true;
 }
 
-auto FileReadAll::io_recived(uint32_t bytes_transferred) -> void {
+auto FileReadAll::io_recived(std::uint32_t bytes_transferred) -> void {
   // append bytes
   offset += bytes_transferred;
-  impl->ov.Offset = static_cast<uint32_t>(offset);           // low 32bits
-  impl->ov.OffsetHigh = static_cast<uint32_t>(offset >> 32); // high 32bits
+  impl->ov.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
+  impl->ov.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
   content.insert(content.end(), buf.data(), buf.data() + bytes_transferred);
 
   // check finished
   if (bytes_transferred < buf.size()) {
     ::CloseHandle(impl->file_handle);
     finished = true;
-    if (await_subtask != nullptr) {
-      *await_subtask = false;
+    if (is_waiting != nullptr) {
+      *is_waiting = false;
     }
     return;
   }
 
   // read more bytes
   if (not io_request()) {
-    if (await_subtask != nullptr) {
-      *await_subtask = false;
+    if (is_waiting != nullptr) {
+      *is_waiting = false;
     }
   }
 }
 
-auto FileReadAll::io_failed(uint32_t err_code) -> void {
+auto FileReadAll::io_failed(std::uint32_t err_code) -> void {
   std::cerr << utils::with_location(std::format("FileReadAll compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 
   ::CloseHandle(impl->file_handle);
   success = false;
-  if (await_subtask != nullptr) {
-    *await_subtask = false;
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
   }
 }
 

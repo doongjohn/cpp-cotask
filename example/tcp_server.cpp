@@ -8,34 +8,31 @@
 
 [[nodiscard]] auto async_fn(cotask::TaskScheduler &, cotask::TcpSocket &listen_socket, int n) -> cotask::Task<void> {
   std::cout << std::format("server {} - accpet\n", n);
-  auto accept_result = co_await listen_socket.accept();
+  auto accept_result = co_await cotask::TcpAccept{&listen_socket};
   if (not accept_result.success) {
     co_return;
   }
 
-  auto &conn_socket = accept_result.accept_socket;
-  conn_socket.assoc_iocp();
+  auto conn_socket = &accept_result.accept_socket;
   while (true) {
     std::cout << std::format("server {} - send\n", n);
-    auto send_msg = std::string{"hello from tcp server!"};
-    auto send_result = co_await conn_socket.send_once(send_msg);
+    auto send_buf = std::string{"hello from tcp server!"};
+    auto send_result = co_await cotask::TcpSendOnce{conn_socket, send_buf};
     if (not send_result.success) {
       break;
     }
 
     std::cout << std::format("server {} - recv\n", n);
     auto recv_buf = std::array<char, 22>{};
-    auto recv_result = co_await conn_socket.recv_once(recv_buf);
+    auto recv_result = co_await cotask::TcpRecvOnce{conn_socket, recv_buf};
     if (not recv_result.success) {
       break;
     }
     std::cout << recv_result.get_string_view() << '\n';
-
-    co_await std::suspend_always{};
   }
 
   std::cout << std::format("server {} - close\n", n);
-  conn_socket.close();
+  conn_socket->close();
   co_return;
 };
 
