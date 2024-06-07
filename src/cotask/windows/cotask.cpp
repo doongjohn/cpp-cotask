@@ -57,10 +57,9 @@ auto TaskScheduler::execute() -> void {
     auto num_entries = ULONG{};
 
     while (true) {
-      auto lock = std::scoped_lock{m};
-
       // check io compeletion
-      if (not ::GetQueuedCompletionStatusEx(impl->iocp_handle, entries.data(), max_count, &num_entries, 0, FALSE)) {
+      if (not ::GetQueuedCompletionStatusEx(impl->iocp_handle, entries.data(), max_count, &num_entries, INFINITE,
+                                            FALSE)) {
         const auto err_code = ::GetLastError();
         if (err_code == WAIT_TIMEOUT) {
           continue;
@@ -70,6 +69,8 @@ auto TaskScheduler::execute() -> void {
           return;
         }
       }
+
+      auto lock = std::scoped_lock{m};
 
       // handle io compeletion
       for (const auto entry : std::span{entries.data(), num_entries}) {

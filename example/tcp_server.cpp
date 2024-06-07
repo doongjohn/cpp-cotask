@@ -13,7 +13,6 @@
   if (not accept_result.success) {
     co_return;
   }
-  std::cout << std::format("server {} - post accept\n", n);
 
   while (true) {
     std::cout << std::format("server {} - send\n", n);
@@ -46,7 +45,7 @@ auto main() -> int {
   auto listen_socket = cotask::TcpSocket{ts};
   listen_socket.listen(8000);
 
-  auto max_clients = 2;
+  auto max_clients = 5;
   for (auto i = 0; i < max_clients; ++i) {
     ts.schedule_from_sync(async_server(ts, listen_socket, i));
   }
