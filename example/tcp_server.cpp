@@ -9,8 +9,7 @@
                                 int n) -> cotask::Task<void> {
   std::cout << std::format("server {} - accpet\n", n);
   auto client_socket = cotask::TcpSocket{ts};
-  auto async_accept = cotask::TcpAccept{&listen_socket, &client_socket};
-  auto accept_result = co_await async_accept;
+  auto accept_result = co_await cotask::TcpAccept{&listen_socket, &client_socket};
   if (not accept_result.success) {
     co_return;
   }
@@ -19,16 +18,14 @@
   while (true) {
     std::cout << std::format("server {} - send\n", n);
     auto send_buf = std::string{"hello from tcp server!"};
-    auto async_send = cotask::TcpSendOnce{&client_socket, send_buf};
-    auto send_result = co_await async_send;
+    auto send_result = co_await cotask::TcpSendOnce{&client_socket, send_buf};
     if (not send_result.success) {
       break;
     }
 
     std::cout << std::format("server {} - recv\n", n);
     auto recv_buf = std::array<char, 22>{};
-    auto async_recv = cotask::TcpRecvOnce{&client_socket, recv_buf};
-    auto recv_result = co_await async_recv;
+    auto recv_result = co_await cotask::TcpRecvOnce{&client_socket, recv_buf};
     if (not recv_result.success) {
       break;
     }
