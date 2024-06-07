@@ -5,10 +5,10 @@
 #include <cotask/utils.hpp>
 
 #include <cassert>
-#include <array>
-#include <mutex>
-#include <ranges>
 #include <thread>
+#include <mutex>
+#include <array>
+#include <ranges>
 #include <iostream>
 
 namespace cotask {
@@ -55,20 +55,25 @@ auto TaskScheduler::execute() -> void {
     constexpr auto max_count = 10ul;
     auto entries = std::array<OVERLAPPED_ENTRY, max_count>{};
     auto num_entries = ULONG{};
+
     while (true) {
+      // check io compeletion
       if (not ::GetQueuedCompletionStatusEx(impl->iocp_handle, entries.data(), max_count, &num_entries, INFINITE,
                                             FALSE)) {
         const auto err_code = ::GetLastError();
-        if (err_code != WAIT_TIMEOUT) {
+        if (err_code == WAIT_TIMEOUT) {
+          continue;
+        } else {
           std::cerr << utils::with_location(std::format("GetQueuedCompletionStatusEx failed: {}", err_code))
                     << std::format("err msg: {}\n", std::system_category().message((int)err_code));
           return;
         }
       }
 
-      const auto lock = std::scoped_lock{m};
-
+      // handle io compeletion
       for (const auto entry : std::span{entries.data(), num_entries}) {
+        auto lock = std::scoped_lock{m};
+
         if (entry.lpCompletionKey == 0) {
           return;
         }
@@ -166,18 +171,21 @@ auto TaskScheduler::execute() -> void {
   }};
 
   // event loop
-  while (not async_tasks.empty()) {
-    const auto lock = std::scoped_lock{m};
+  while (true) {
+    auto lock = std::scoped_lock{m};
+    if (async_tasks.empty()) {
+      break;
+    }
 
     // resume task
     auto task = async_tasks.front();
-    async_tasks.pop_front();
     if (task.can_resume()) {
       task.resume();
     }
     if (not task.done()) {
       async_tasks.push_back(task);
     }
+    async_tasks.pop_front();
 
     // destroy ended coroutine
     for (auto &cohandle : ended_task | std::views::reverse) {

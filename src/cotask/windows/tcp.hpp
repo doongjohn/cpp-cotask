@@ -40,7 +40,6 @@ namespace cotask {
 
 struct OverlappedTcpAccept : public OVERLAPPED {
   const TcpIoType type = TcpIoType::Accept;
-
   TcpAccept *awaitable;
 
   inline explicit OverlappedTcpAccept(TcpAccept *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
@@ -62,7 +61,6 @@ namespace cotask {
 
 struct OverlappedTcpConnect : public OVERLAPPED {
   const TcpIoType type = TcpIoType::Connect;
-
   TcpConnect *awaitable;
 
   inline explicit OverlappedTcpConnect(TcpConnect *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
@@ -84,7 +82,6 @@ namespace cotask {
 
 struct OverlappedTcpRecvOnce : public OVERLAPPED {
   const TcpIoType type = TcpIoType::RecvOnce;
-
   TcpRecvOnce *awaitable;
 
   inline explicit OverlappedTcpRecvOnce(TcpRecvOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
@@ -106,7 +103,6 @@ namespace cotask {
 
 struct OverlappedTcpRecvAll : public OVERLAPPED {
   const TcpIoType type = TcpIoType::RecvAll;
-
   TcpRecvAll *awaitable;
 
   inline explicit OverlappedTcpRecvAll(TcpRecvAll *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
@@ -129,7 +125,6 @@ namespace cotask {
 
 struct OverlappedTcpSendOnce : public OVERLAPPED {
   const TcpIoType type = TcpIoType::SendOnce;
-
   TcpSendOnce *awaitable;
 
   inline explicit OverlappedTcpSendOnce(TcpSendOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
@@ -151,7 +146,6 @@ namespace cotask {
 
 struct OverlappedTcpSendAll : public OVERLAPPED {
   const TcpIoType type = TcpIoType::SendAll;
-
   TcpSendAll *awaitable;
 
   inline explicit OverlappedTcpSendAll(TcpSendAll *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}

@@ -51,8 +51,7 @@ public:
   auto operator=(const TcpSocket &other) -> TcpSocket &;
 
 public:
-  auto bind(std::uint16_t port) -> bool;
-  auto listen() -> bool;
+  auto listen(std::uint16_t port) -> bool;
   auto close() -> bool;
 };
 
@@ -61,7 +60,6 @@ struct TcpAcceptResult {
   bool success = false;
 
   TcpAcceptResult(bool finished, bool success, TcpSocket *accept_socket);
-  inline TcpAcceptResult(const TcpAcceptResult &other) = delete;
 };
 
 struct TcpAccept {
@@ -89,7 +87,7 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return not success;
+    return finished or not success;
   }
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
@@ -140,7 +138,7 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return not success;
+    return finished or not success;
   }
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
@@ -206,7 +204,7 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return not success;
+    return finished or not success;
   }
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
@@ -258,7 +256,7 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return not success;
+    return finished or not success;
   }
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
@@ -307,17 +305,17 @@ public:
   bool finished = false;
   bool success = false;
 
-  std::span<char> buf;
+  std::span<const char> buf;
   std::uint32_t bytes_sent = 0;
 
 public:
-  TcpSendOnce(TcpSocket *sock, std::span<char> buf);
+  TcpSendOnce(TcpSocket *sock, std::span<const char> buf);
   inline TcpSendOnce(const TcpSendOnce &other) = delete;
   ~TcpSendOnce();
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return not success;
+    return finished or not success;
   }
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
@@ -369,7 +367,7 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return not success;
+    return finished or not success;
   }
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>

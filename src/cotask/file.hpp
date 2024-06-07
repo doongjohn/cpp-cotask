@@ -61,14 +61,14 @@ public:
   auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
-    cohandle.promise().is_waiting = true;
+    *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
-    cohandle.promise().is_waiting = true;
+    *this->is_waiting = true;
   }
 
   [[nodiscard]] inline auto await_resume() const noexcept -> FileReadBufResult {
@@ -134,14 +134,14 @@ public:
   auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
-    cohandle.promise().is_waiting = true;
+    *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
-    cohandle.promise().is_waiting = true;
+    *this->is_waiting = true;
   }
 
   [[nodiscard]] inline auto await_resume() const noexcept -> FileReadAllResult {

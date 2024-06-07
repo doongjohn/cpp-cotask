@@ -44,7 +44,7 @@ struct ScheduledTask {
   }
 
   [[nodiscard]] inline auto can_resume() const noexcept -> bool {
-    return not cohandle.done() and not *is_waiting;
+    return not cohandle.done() and *is_waiting == false;
   }
 
   inline auto resume() const -> void {
@@ -90,14 +90,13 @@ public:
   auto execute() -> void;
 
 private:
-  inline auto destroy_cohandle(std::coroutine_handle<> cohandle) -> void {
+  inline auto defer_destroy_cohandle(std::coroutine_handle<> cohandle) -> void {
     ended_task.push_back(cohandle);
   }
 };
 
 struct TaskPromise {
   TaskScheduler &ts;
-  std::coroutine_handle<> outer_cohandle = nullptr;
   bool *outer_is_waiting = nullptr;
   bool is_waiting = false;
 
@@ -134,19 +133,19 @@ struct Task<void> {
   coro_handle cohandle;
   promise_type &promise;
 
-  inline explicit Task(const coro_handle cohandle) : cohandle{cohandle}, promise{cohandle.promise()} {
+  inline explicit Task(coro_handle cohandle) : cohandle{cohandle}, promise{cohandle.promise()} {
     promise.ts.schedule_from_task({cohandle, &promise.is_waiting});
   }
 
   inline Task(const Task &) = delete;
 
   inline Task(Task &&other) noexcept : cohandle{other.cohandle}, promise{other.promise} {
-    promise.outer_cohandle = other.promise.outer_cohandle;
     promise.outer_is_waiting = other.promise.outer_is_waiting;
     promise.is_waiting = other.promise.is_waiting;
+
     other.cohandle = nullptr;
-    other.promise.outer_cohandle = nullptr;
     other.promise.outer_is_waiting = nullptr;
+    other.promise.is_waiting = false;
   }
 
   [[nodiscard]] inline auto await_ready() const noexcept -> bool {
@@ -155,20 +154,18 @@ struct Task<void> {
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
-    promise.outer_cohandle = outer_cohandle;
     promise.outer_is_waiting = &outer_cohandle.promise().is_waiting;
     *promise.outer_is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
-    promise.outer_cohandle = outer_cohandle;
     promise.outer_is_waiting = &outer_cohandle.promise().is_waiting;
     *promise.outer_is_waiting = true;
   }
 
   inline auto await_resume() const noexcept -> void {
-    promise.ts.destroy_cohandle(cohandle);
+    promise.ts.defer_destroy_cohandle(cohandle);
   }
 };
 
@@ -206,20 +203,20 @@ struct Task {
   coro_handle cohandle;
   promise_type &promise;
 
-  inline explicit Task(const coro_handle cohandle) : cohandle{cohandle}, promise{cohandle.promise()} {
+  inline explicit Task(coro_handle cohandle) : cohandle{cohandle}, promise{cohandle.promise()} {
     promise.ts.schedule_from_task({cohandle, &promise.is_waiting});
   }
 
   inline Task(const Task &) = delete;
 
   inline Task(Task &&other) noexcept : cohandle{other.cohandle}, promise{other.promise} {
-    promise.outer_cohandle = other.promise.outer_cohandle;
     promise.outer_is_waiting = other.promise.outer_is_waiting;
     promise.is_waiting = other.promise.is_waiting;
     promise.result = other.promise.result;
+
     other.cohandle = nullptr;
-    other.promise.outer_cohandle = nullptr;
     other.promise.outer_is_waiting = nullptr;
+    other.promise.is_waiting = false;
   }
 
   [[nodiscard]] inline auto await_ready() const noexcept -> bool {
@@ -228,20 +225,18 @@ struct Task {
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
-    promise.outer_cohandle = outer_cohandle;
     promise.outer_is_waiting = &outer_cohandle.promise().is_waiting;
     *promise.outer_is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> outer_cohandle) const noexcept -> void {
-    promise.outer_cohandle = outer_cohandle;
     promise.outer_is_waiting = &outer_cohandle.promise().is_waiting;
     *promise.outer_is_waiting = true;
   }
 
   [[nodiscard]] inline auto await_resume() const noexcept -> T {
-    promise.ts.destroy_cohandle(cohandle);
+    promise.ts.defer_destroy_cohandle(cohandle);
     return std::move(promise.result);
   }
 };
