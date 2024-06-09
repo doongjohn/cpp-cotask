@@ -2,7 +2,6 @@ add_executable(cotask-example-file "")
 
 set_property(TARGET cotask-example-file PROPERTY EXCLUDE_FROM_ALL true)
 set_property(TARGET cotask-example-file PROPERTY CXX_STANDARD 20)
-set_property(TARGET cotask-example-file PROPERTY MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)
 use_sanitizer(cotask-example-file)
 
 target_sources(

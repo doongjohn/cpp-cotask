@@ -19,7 +19,6 @@ endif()
 add_library(cotask "")
 
 set_property(TARGET cotask PROPERTY CXX_STANDARD 20)
-set_property(TARGET cotask PROPERTY MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)
 use_sanitizer(cotask)
 
 target_sources(
