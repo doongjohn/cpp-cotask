@@ -32,8 +32,8 @@ auto async_server(cotask::TaskScheduler &ts, cotask::TcpSocket listen_socket, in
     co_await std::suspend_always{};
   }
 
-  std::cout << std::format("server {} - close\n", n);
   client_socket.close();
+  std::cout << std::format("server {} - close\n", n);
   co_return;
 };
 
