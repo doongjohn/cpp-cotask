@@ -2,6 +2,7 @@
 
 #include <cotask/file.hpp>
 
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 namespace cotask {
