@@ -2,7 +2,6 @@
 
 #include <cotask/cotask.hpp>
 
-#include <winsock2.h>
 #include <windows.h>
 
 namespace cotask {
