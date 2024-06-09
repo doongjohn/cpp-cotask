@@ -3,7 +3,7 @@
 
 #include <cotask/cotask.hpp>
 
-[[nodiscard]] auto async_nested_task1(cotask::TaskScheduler &) -> cotask::Task<void> {
+auto async_nested_task1(cotask::TaskScheduler &) -> cotask::Task<void> {
   std::cout << "nested_task1 - step 1\n";
   co_await std::suspend_always{};
   std::cout << "nested_task1 - step 2\n";
@@ -11,13 +11,13 @@
   std::cout << "nested_task1 - done\n";
 }
 
-[[nodiscard]] auto async_nested_task2(cotask::TaskScheduler &) -> cotask::Task<void> {
+auto async_nested_task2(cotask::TaskScheduler &) -> cotask::Task<void> {
   std::cout << "nested_task2 - step 1\n";
   co_await std::suspend_always{};
   std::cout << "nested_task2 - done\n";
 }
 
-[[nodiscard]] auto async_nested_task3(cotask::TaskScheduler &, std::string input) -> cotask::Task<std::string> {
+auto async_nested_task3(cotask::TaskScheduler &, std::string input) -> cotask::Task<std::string> {
   std::cout << "nested_task3 - step 1\n";
   co_await std::suspend_always{};
   std::cout << "nested_task3 - step 2\n";
@@ -27,7 +27,7 @@
   co_return input;
 }
 
-[[nodiscard]] auto async_outer_task(cotask::TaskScheduler &ts) -> cotask::Task<void> {
+auto async_outer_task(cotask::TaskScheduler &ts) -> cotask::Task<void> {
   std::cout << "outer_task - step 1\n";
 
   auto t1 = async_nested_task1(ts);
@@ -44,7 +44,7 @@
   std::cout << "outer_task - done\n";
 }
 
-[[nodiscard]] auto async_task1(cotask::TaskScheduler &) -> cotask::Task<void> {
+auto async_task1(cotask::TaskScheduler &) -> cotask::Task<void> {
   std::cout << "task1 - step 1\n";
   co_await std::suspend_always{};
   std::cout << "task1 - step 2\n";
@@ -52,7 +52,7 @@
   std::cout << "task1 - done\n";
 }
 
-[[nodiscard]] auto async_task2(cotask::TaskScheduler &) -> cotask::Task<void> {
+auto async_task2(cotask::TaskScheduler &) -> cotask::Task<void> {
   std::cout << "task2 - step 1\n";
   co_await std::suspend_always{};
   std::cout << "task2 - step 2\n";
