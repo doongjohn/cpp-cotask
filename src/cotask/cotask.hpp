@@ -26,8 +26,8 @@ enum struct TcpIoType {
   SendAll,
 };
 
-auto init() -> void;
-auto deinit() -> void;
+auto net_init() -> void;
+auto net_deinit() -> void;
 
 struct ScheduledTask {
   std::coroutine_handle<> cohandle;

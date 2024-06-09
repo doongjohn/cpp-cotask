@@ -38,7 +38,7 @@ auto async_server(cotask::TaskScheduler &ts, cotask::TcpSocket listen_socket, in
 };
 
 auto main() -> int {
-  cotask::init();
+  cotask::net_init();
 
   auto ts = cotask::TaskScheduler{};
   auto listen_socket = cotask::TcpSocket{ts};
@@ -52,6 +52,6 @@ auto main() -> int {
 
   listen_socket.close();
 
-  cotask::deinit();
+  cotask::net_deinit();
   return EXIT_SUCCESS;
 }

@@ -46,12 +46,12 @@ auto async_client(cotask::TaskScheduler &ts) -> cotask::Task<void> {
 };
 
 auto main() -> int {
-  cotask::init();
+  cotask::net_init();
 
   auto ts = cotask::TaskScheduler{};
   ts.schedule_from_sync(async_client(ts));
   ts.execute();
 
-  cotask::deinit();
+  cotask::net_deinit();
   return EXIT_SUCCESS;
 }

@@ -11,7 +11,7 @@
 
 namespace cotask {
 
-auto init() -> void {
+auto net_init() -> void {
   auto wsa_data = WSADATA{};
   auto startup_result = ::WSAStartup(MAKEWORD(2, 2), &wsa_data);
   if (startup_result != 0) {
@@ -20,7 +20,7 @@ auto init() -> void {
   }
 }
 
-auto deinit() -> void {
+auto net_deinit() -> void {
   if (::WSACleanup() != 0) {
     const auto err_code = ::WSAGetLastError();
     std::cerr << utils::with_location(std::format("WSACleanup failed: {}", err_code))
