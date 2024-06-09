@@ -14,11 +14,11 @@ struct TcpConnectResult;
 struct TcpConnect;
 
 struct TcpRecvResult;
-struct TcpRecvOnce;
+struct TcpRecv;
 struct TcpRecvAll;
 
 struct TcpSendResult;
-struct TcpSendOnce;
+struct TcpSend;
 struct TcpSendAll;
 
 } // namespace cotask
@@ -171,7 +171,7 @@ struct TcpRecvResult {
   }
 };
 
-struct TcpRecvOnce {
+struct TcpRecv {
   friend TaskScheduler;
 
 private:
@@ -191,9 +191,9 @@ public:
   std::uint32_t bytes_received = 0;
 
 public:
-  TcpRecvOnce(TcpSocket *sock, std::span<char> buf);
-  inline TcpRecvOnce(const TcpRecvOnce &other) = delete;
-  ~TcpRecvOnce();
+  TcpRecv(TcpSocket *sock, std::span<char> buf);
+  inline TcpRecv(const TcpRecv &other) = delete;
+  ~TcpRecv();
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
@@ -276,7 +276,7 @@ struct TcpSendResult {
   std::uint32_t bytes_sent = 0;
 };
 
-struct TcpSendOnce {
+struct TcpSend {
   friend TaskScheduler;
 
 private:
@@ -296,9 +296,9 @@ public:
   std::uint32_t bytes_sent = 0;
 
 public:
-  TcpSendOnce(TcpSocket *sock, std::span<const char> buf);
-  inline TcpSendOnce(const TcpSendOnce &other) = delete;
-  ~TcpSendOnce();
+  TcpSend(TcpSocket *sock, std::span<const char> buf);
+  inline TcpSend(const TcpSend &other) = delete;
+  ~TcpSend();
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {

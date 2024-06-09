@@ -19,7 +19,7 @@ auto async_client(cotask::TaskScheduler &ts) -> cotask::Task<void> {
   while (true) {
     std::cout << "client - recv\n";
     auto recv_buf = std::array<char, 22>{};
-    auto recv_result = co_await cotask::TcpRecvOnce{&conn_socket, recv_buf};
+    auto recv_result = co_await cotask::TcpRecv{&conn_socket, recv_buf};
     if (not recv_result.success) {
       break;
     }
@@ -27,7 +27,7 @@ auto async_client(cotask::TaskScheduler &ts) -> cotask::Task<void> {
 
     std::cout << "client - send\n";
     auto send_buf = std::string{"hello from tcp client!"};
-    auto send_result = co_await cotask::TcpSendOnce{&conn_socket, send_buf};
+    auto send_result = co_await cotask::TcpSend{&conn_socket, send_buf};
     if (not send_result.success) {
       break;
     }

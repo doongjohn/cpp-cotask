@@ -312,10 +312,10 @@ auto TcpSocket::close() -> bool {
 
 } // namespace cotask
 
-// RecvOnce
+// Recv
 namespace cotask {
 
-auto OverlappedTcpRecvOnce::io_received(DWORD bytes_received) -> void {
+auto OverlappedTcpRecv ::io_received(DWORD bytes_received) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
@@ -325,18 +325,18 @@ auto OverlappedTcpRecvOnce::io_received(DWORD bytes_received) -> void {
   awaitable->buf = {awaitable->buf.data(), bytes_received};
 }
 
-auto OverlappedTcpRecvOnce::io_failed(DWORD err_code) -> void {
+auto OverlappedTcpRecv ::io_failed(DWORD err_code) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
   awaitable->finished = true;
   awaitable->success = false;
 
-  std::cerr << utils::with_location(std::format("TcpRecvOnce compeletion failed: {}", err_code))
+  std::cerr << utils::with_location(std::format("TcpRecv  compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 
-TcpRecvOnce::TcpRecvOnce(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
+TcpRecv::TcpRecv(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
   CONSTRUCT_IMPL(this);
 
   auto wsa_buf = WSABUF{
@@ -360,7 +360,7 @@ TcpRecvOnce::TcpRecvOnce(TcpSocket *sock, std::span<char> buf) : tcp_socket{*soc
   success = true;
 }
 
-TcpRecvOnce::~TcpRecvOnce() {
+TcpRecv::~TcpRecv() {
   std::destroy_at(impl);
 }
 
@@ -402,10 +402,10 @@ TcpRecvAll::~TcpRecvAll() {
 
 } // namespace cotask
 
-// SendOnce
+// Send
 namespace cotask {
 
-auto OverlappedTcpSendOnce::io_sent(DWORD bytes_sent) -> void {
+auto OverlappedTcpSend ::io_sent(DWORD bytes_sent) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
@@ -414,18 +414,18 @@ auto OverlappedTcpSendOnce::io_sent(DWORD bytes_sent) -> void {
   awaitable->bytes_sent = bytes_sent;
 }
 
-auto OverlappedTcpSendOnce::io_failed(DWORD err_code) -> void {
+auto OverlappedTcpSend ::io_failed(DWORD err_code) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
   awaitable->finished = true;
   awaitable->success = false;
 
-  std::cerr << utils::with_location(std::format("TcpSendOnce compeletion failed: {}", err_code))
+  std::cerr << utils::with_location(std::format("TcpSend  compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 
-TcpSendOnce::TcpSendOnce(TcpSocket *sock, std::span<const char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
+TcpSend::TcpSend(TcpSocket *sock, std::span<const char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
   CONSTRUCT_IMPL(this);
 
   auto wsa_buf = WSABUF{
@@ -447,7 +447,7 @@ TcpSendOnce::TcpSendOnce(TcpSocket *sock, std::span<const char> buf) : tcp_socke
   success = true;
 }
 
-TcpSendOnce::~TcpSendOnce() {
+TcpSend::~TcpSend() {
   std::destroy_at(impl);
 }
 

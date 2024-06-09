@@ -16,14 +16,14 @@ auto async_server(cotask::TaskScheduler &ts, cotask::TcpSocket listen_socket, in
   while (true) {
     std::cout << std::format("server {} - send\n", n);
     auto send_buf = std::string{"hello from tcp server!"};
-    auto send_result = co_await cotask::TcpSendOnce{&client_socket, send_buf};
+    auto send_result = co_await cotask::TcpSend{&client_socket, send_buf};
     if (not send_result.success) {
       break;
     }
 
     std::cout << std::format("server {} - recv\n", n);
     auto recv_buf = std::array<char, 22>{};
-    auto recv_result = co_await cotask::TcpRecvOnce{&client_socket, recv_buf};
+    auto recv_result = co_await cotask::TcpRecv{&client_socket, recv_buf};
     if (not recv_result.success) {
       break;
     }

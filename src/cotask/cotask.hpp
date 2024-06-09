@@ -25,9 +25,9 @@ enum struct FileIoType {
 enum struct TcpIoType {
   Accept,
   Connect,
-  RecvOnce,
+  Recv,
   RecvAll,
-  SendOnce,
+  Send,
   SendAll,
 };
 

@@ -155,8 +155,8 @@ auto TaskScheduler::execute() -> void {
           ovex->io_received(bytes_transferred);
         } break;
 
-        case TcpIoType::RecvOnce: {
-          auto ovex = reinterpret_cast<OverlappedTcpRecvOnce *>(ov);
+        case TcpIoType::Recv: {
+          auto ovex = reinterpret_cast<OverlappedTcpRecv *>(ov);
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
             ovex->io_failed(err_code);
@@ -170,8 +170,8 @@ auto TaskScheduler::execute() -> void {
           // auto ovex = reinterpret_cast<OverlappedTcpRecvAll *>(ov);
         } break;
 
-        case TcpIoType::SendOnce: {
-          auto ovex = reinterpret_cast<OverlappedTcpSendOnce *>(ov);
+        case TcpIoType::Send: {
+          auto ovex = reinterpret_cast<OverlappedTcpSend *>(ov);
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
             ovex->io_failed(err_code);

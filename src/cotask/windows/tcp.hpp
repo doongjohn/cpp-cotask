@@ -80,23 +80,23 @@ struct TcpConnect::Impl {
 
 } // namespace cotask
 
-// RecvOnce
+// Recv
 namespace cotask {
 
-struct OverlappedTcpRecvOnce : public OVERLAPPED {
-  const TcpIoType type = TcpIoType::RecvOnce;
-  TcpRecvOnce *awaitable;
+struct OverlappedTcpRecv : public OVERLAPPED {
+  const TcpIoType type = TcpIoType::Recv;
+  TcpRecv *awaitable;
 
-  inline explicit OverlappedTcpRecvOnce(TcpRecvOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
+  inline explicit OverlappedTcpRecv(TcpRecv *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
   auto io_received(DWORD bytes_received) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
-struct TcpRecvOnce::Impl {
-  OverlappedTcpRecvOnce ovex;
+struct TcpRecv::Impl {
+  OverlappedTcpRecv ovex;
 
-  inline explicit Impl(TcpRecvOnce *awaitable) : ovex{awaitable} {}
+  inline explicit Impl(TcpRecv *awaitable) : ovex{awaitable} {}
 };
 
 } // namespace cotask
@@ -123,23 +123,23 @@ struct TcpRecvAll::Impl {
 
 } // namespace cotask
 
-// SendOnce
+// Send
 namespace cotask {
 
-struct OverlappedTcpSendOnce : public OVERLAPPED {
-  const TcpIoType type = TcpIoType::SendOnce;
-  TcpSendOnce *awaitable;
+struct OverlappedTcpSend : public OVERLAPPED {
+  const TcpIoType type = TcpIoType::Send;
+  TcpSend *awaitable;
 
-  inline explicit OverlappedTcpSendOnce(TcpSendOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
+  inline explicit OverlappedTcpSend(TcpSend *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
   auto io_sent(DWORD bytes_sent) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
-struct TcpSendOnce::Impl {
-  OverlappedTcpSendOnce ovex;
+struct TcpSend::Impl {
+  OverlappedTcpSend ovex;
 
-  inline explicit Impl(TcpSendOnce *awaitable) : ovex{awaitable} {}
+  inline explicit Impl(TcpSend *awaitable) : ovex{awaitable} {}
 };
 
 } // namespace cotask
