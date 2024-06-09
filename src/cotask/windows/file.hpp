@@ -15,7 +15,7 @@ struct OverlappedFileReadBuf : OVERLAPPED {
   const FileIoType type = FileIoType::ReadBuf;
   FileReadBuf *read_buf;
 
-  inline OverlappedFileReadBuf(FileReadBuf *read_buf) : OVERLAPPED{}, read_buf{read_buf} {}
+  inline explicit OverlappedFileReadBuf(FileReadBuf *read_buf) : OVERLAPPED{}, read_buf{read_buf} {}
 };
 
 struct FileReadBuf::Impl {
