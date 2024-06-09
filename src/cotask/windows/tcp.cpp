@@ -66,7 +66,7 @@ auto TcpSocket::listen(std::uint16_t port) -> bool {
     return false;
   }
 
-  // setup iocp
+  // setup IOCP
   if (not ::CreateIoCompletionPort(impl->get_handle(), ts.impl->iocp_handle, (ULONG_PTR)this, 0)) {
     const auto err_code = ::GetLastError();
     std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))
@@ -196,6 +196,7 @@ TcpConnect::TcpConnect(TcpSocket *sock, std::string_view ip, std::string_view po
     return;
   }
 
+  // get ConnectEx function pointer
   if (tcp_socket.impl->fnConnectEx == nullptr) {
     auto guid = GUID WSAID_CONNECTEX;
     auto bytes = DWORD{};
@@ -224,7 +225,7 @@ TcpConnect::TcpConnect(TcpSocket *sock, std::string_view ip, std::string_view po
     return;
   }
 
-  // setup iocp
+  // setup IOCP
   if (not ::CreateIoCompletionPort(tcp_socket.impl->get_handle(), ts.impl->iocp_handle, (ULONG_PTR)sock, 0)) {
     const auto err_code = ::GetLastError();
     std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed: {}", err_code))

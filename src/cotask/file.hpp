@@ -44,6 +44,7 @@ private:
 
   const std::filesystem::path path;
   std::span<char> buf;
+  std::uint32_t bytes_read = 0;
   std::uint64_t offset = 0;
 
 public:
@@ -113,8 +114,9 @@ private:
 
   const std::filesystem::path path;
   std::array<char, 500> buf;
-  std::vector<char> content;
+  std::uint32_t bytes_read = 0;
   std::uint64_t offset = 0;
+  std::vector<char> content;
 
 public:
   FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, std::uint64_t offset = 0);
