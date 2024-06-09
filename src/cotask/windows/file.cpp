@@ -1,5 +1,6 @@
 #include "cotask.hpp"
 #include "file.hpp"
+
 #include <cotask/impl.hpp>
 #include <cotask/utils.hpp>
 
@@ -7,49 +8,22 @@
 
 namespace cotask {
 
-FileReadBuf::FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf,
-                         std::uint64_t offset)
-    : ts{ts}, path{path}, buf{buf}, offset{offset} {
-  CONSTRUCT_IMPL();
+FileReadBuf::FileReadBuf(TaskScheduler &ts, FileReader *reader, std::span<char> buf, std::uint64_t offset)
+    : ts{ts}, reader{reader}, buf{buf}, offset{offset} {
+  CONSTRUCT_IMPL(this);
 
   // setup OVERLAPPED
-  impl->ov.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
-  impl->ov.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
-
-  // open file
-  impl->file_handle =
-    ::CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
-
-  if (impl->file_handle == nullptr) {
-    auto err_code = ::GetLastError();
-
-    std::cerr << utils::with_location(
-                   std::format("CreateFileW failed for \"{}\": {}", std::filesystem::absolute(path).string(), err_code))
-              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    return;
-  }
-
-  // setup IOCP
-  if (::CreateIoCompletionPort(impl->file_handle, ts.impl->iocp_handle, (ULONG_PTR)this, 0) == nullptr) {
-    auto err_code = ::GetLastError();
-    ::CloseHandle(impl->file_handle);
-
-    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed for \"{}\": {}",
-                                                  std::filesystem::absolute(path).string(), err_code))
-              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    return;
-  }
+  impl->ovex.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
+  impl->ovex.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
 
   // read file
-  auto read_success = ::ReadFile(impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()),
-                                 reinterpret_cast<DWORD *>(&bytes_read), &impl->ov);
+  auto read_success = ::ReadFile(reader->impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()),
+                                 reinterpret_cast<DWORD *>(&bytes_read), &impl->ovex);
   auto err_code = ::GetLastError();
   auto read_failed = not read_success and err_code != ERROR_IO_PENDING;
   if (read_failed) {
-    ::CloseHandle(impl->file_handle);
-
-    std::cerr << utils::with_location(
-                   std::format("ReadFile failed for \"{}\": {}", std::filesystem::absolute(path).string(), err_code))
+    std::cerr << utils::with_location(std::format("ReadFile failed for \"{}\": {}",
+                                                  std::filesystem::absolute(reader->path).string(), err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
     return;
   }
@@ -61,15 +35,14 @@ FileReadBuf::~FileReadBuf() {
   std::destroy_at(impl);
 }
 
-auto FileReadBuf::io_received(std::uint32_t bytes_transferred) -> void {
+auto FileReadBuf::io_read(std::uint32_t bytes_read) -> void {
   // check finished
-  if (bytes_transferred <= buf.size()) {
+  if (bytes_read <= buf.size()) {
     if (is_waiting != nullptr) {
       *is_waiting = false;
     }
     finished = true;
-    buf = {buf.data(), bytes_transferred};
-    ::CloseHandle(impl->file_handle);
+    buf = {buf.data(), bytes_read};
   }
 }
 
@@ -79,41 +52,18 @@ auto FileReadBuf::io_failed(std::uint32_t err_code) -> void {
   }
   finished = true;
   success = false;
-  ::CloseHandle(impl->file_handle);
 
   std::cerr << utils::with_location(std::format("FileReadToBuf compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 
-FileReadAll::FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, std::size_t offset)
-    : ts{ts}, path{path}, offset{offset} {
-  CONSTRUCT_IMPL();
+FileReadAll::FileReadAll(TaskScheduler &ts, FileReader *reader, std::size_t offset)
+    : ts{ts}, reader{reader}, offset{offset} {
+  CONSTRUCT_IMPL(this);
 
   // setup OVERLAPPED
-  impl->ov.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
-  impl->ov.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
-
-  // open file
-  impl->file_handle =
-    ::CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
-
-  if (impl->file_handle == nullptr) {
-    const auto err_code = ::GetLastError();
-    std::cerr << utils::with_location(
-                   std::format("CreateFileW failed for \"{}\": {}", std::filesystem::absolute(path).string(), err_code))
-              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    return;
-  }
-
-  // setup IOCP
-  if (::CreateIoCompletionPort(impl->file_handle, ts.impl->iocp_handle, (ULONG_PTR)this, 0) == nullptr) {
-    const auto err_code = ::GetLastError();
-    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed for \"{}\": {}",
-                                                  std::filesystem::absolute(path).string(), err_code))
-              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-    ::CloseHandle(impl->file_handle);
-    return;
-  }
+  impl->ovex.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
+  impl->ovex.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
 
   // read file
   if (not io_request()) {
@@ -128,16 +78,15 @@ FileReadAll::~FileReadAll() {
 }
 
 auto FileReadAll::io_request() -> bool {
-  auto read_success = ::ReadFile(impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()),
-                                 reinterpret_cast<DWORD *>(&bytes_read), &impl->ov);
+  auto read_success = ::ReadFile(reader->impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()),
+                                 reinterpret_cast<DWORD *>(&bytes_read), &impl->ovex);
   auto err_code = ::GetLastError();
   auto read_failed = not read_success and err_code != ERROR_IO_PENDING;
   if (read_failed) {
     success = false;
-    ::CloseHandle(impl->file_handle);
 
-    std::cerr << utils::with_location(
-                   std::format("ReadFile failed for \"{}\": {}", std::filesystem::absolute(path).string(), err_code))
+    std::cerr << utils::with_location(std::format("ReadFile failed for \"{}\": {}",
+                                                  std::filesystem::absolute(reader->path).string(), err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
     return false;
   }
@@ -145,21 +94,20 @@ auto FileReadAll::io_request() -> bool {
   return true;
 }
 
-auto FileReadAll::io_received(std::uint32_t bytes_transferred) -> void {
-  // append bytes
-  offset += bytes_transferred;
-  impl->ov.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
-  impl->ov.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
-  content.insert(content.end(), buf.data(), buf.data() + bytes_transferred);
+auto FileReadAll::io_read(std::uint32_t bytes_read) -> void {
+  // accumulate bytes
+  offset += bytes_read;
+  impl->ovex.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
+  impl->ovex.OffsetHigh = static_cast<std::uint32_t>(offset >> 32); // high 32bits
+  content.insert(content.end(), buf.data(), buf.data() + bytes_read);
 
   // check finished
-  if (bytes_transferred < buf.size()) {
+  if (bytes_read < buf.size()) {
     if (is_waiting != nullptr) {
       *is_waiting = false;
     }
     finished = true;
     success = true;
-    ::CloseHandle(impl->file_handle);
     return;
   }
 
@@ -178,10 +126,47 @@ auto FileReadAll::io_failed(std::uint32_t err_code) -> void {
   }
   finished = true;
   success = false;
-  ::CloseHandle(impl->file_handle);
 
   std::cerr << utils::with_location(std::format("FileReadAll compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+}
+
+FileReader::FileReader(TaskScheduler &ts, const std::filesystem::path &path) : ts{ts}, path{path} {
+  CONSTRUCT_IMPL();
+
+  // open file
+  impl->file_handle =
+    ::CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
+
+  if (impl->file_handle == nullptr) {
+    auto err_code = ::GetLastError();
+
+    std::cerr << utils::with_location(
+                   std::format("CreateFileW failed for \"{}\": {}", std::filesystem::absolute(path).string(), err_code))
+              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+    return;
+  }
+
+  // setup IOCP
+  if (::CreateIoCompletionPort(impl->file_handle, ts.impl->iocp_handle, (ULONG_PTR)this, 0) == nullptr) {
+    auto err_code = ::GetLastError();
+    ::CloseHandle(impl->file_handle);
+    impl->file_handle = nullptr;
+
+    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed for \"{}\": {}",
+                                                  std::filesystem::absolute(path).string(), err_code))
+              << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+  }
+}
+
+FileReader::~FileReader() {
+  std::destroy_at(impl);
+}
+
+auto FileReader::close() -> void {
+  if (impl->file_handle != nullptr) {
+    ::CloseHandle(impl->file_handle);
+  }
 }
 
 } // namespace cotask

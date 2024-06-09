@@ -1,6 +1,7 @@
 #include "cotask.hpp"
 #include "file.hpp"
 #include "tcp.hpp"
+
 #include <cotask/impl.hpp>
 #include <cotask/utils.hpp>
 
@@ -93,28 +94,39 @@ auto TaskScheduler::execute() -> void {
 
       auto n = DWORD{};
       switch (std::bit_cast<AsyncIoBase *>(completion_key)->type) {
-      case AsyncIoType::FileReadBuf: {
-        auto io_task = std::bit_cast<FileReadBuf *>(completion_key);
-        if (not ::GetOverlappedResult(io_task->impl->file_handle, overlapped, &n, TRUE)) {
-          const auto err_code = ::GetLastError();
-          if (err_code != ERROR_HANDLE_EOF) {
-            io_task->io_failed(err_code);
-            continue;
+      case AsyncIoType::FileRead: {
+        auto reader = std::bit_cast<FileReader *>(completion_key);
+        auto ov = reinterpret_cast<OverlappedFile *>(overlapped);
+
+        switch (ov->type) {
+        case FileIoType::ReadBuf: {
+          auto ovex = reinterpret_cast<OverlappedFileReadBuf *>(ov);
+          if (not ::GetOverlappedResult(reader->impl->file_handle, overlapped, &n, TRUE)) {
+            const auto err_code = ::GetLastError();
+            if (err_code != ERROR_HANDLE_EOF) {
+              ovex->read_buf->io_failed(err_code);
+              continue;
+            }
           }
+          ovex->read_buf->io_read(bytes_transferred);
+        } break;
+
+        case FileIoType::ReadAll: {
+          auto ovex = reinterpret_cast<OverlappedFileReadAll *>(ov);
+          if (not ::GetOverlappedResult(reader->impl->file_handle, overlapped, &n, TRUE)) {
+            const auto err_code = ::GetLastError();
+            if (err_code != ERROR_HANDLE_EOF) {
+              ovex->read_all->io_failed(err_code);
+              continue;
+            }
+          }
+          ovex->read_all->io_read(bytes_transferred);
+        } break;
         }
-        io_task->io_received(bytes_transferred);
       } break;
 
-      case AsyncIoType::FileReadAll: {
-        auto io_task = std::bit_cast<FileReadAll *>(completion_key);
-        if (not ::GetOverlappedResult(io_task->impl->file_handle, overlapped, &n, TRUE)) {
-          const auto err_code = ::GetLastError();
-          if (err_code != ERROR_HANDLE_EOF) {
-            io_task->io_failed(err_code);
-            continue;
-          }
-        }
-        io_task->io_received(bytes_transferred);
+      case AsyncIoType::FileWrite: {
+        // TODO
       } break;
 
       case AsyncIoType::TcpSocket: {
@@ -130,7 +142,7 @@ auto TaskScheduler::execute() -> void {
             ovex->io_failed(err_code);
             continue;
           }
-          ovex->io_succeed();
+          ovex->io_received(bytes_transferred);
         } break;
 
         case TcpIoType::Connect: {
@@ -140,7 +152,7 @@ auto TaskScheduler::execute() -> void {
             ovex->io_failed(err_code);
             continue;
           }
-          ovex->io_succeed();
+          ovex->io_received(bytes_transferred);
         } break;
 
         case TcpIoType::RecvOnce: {
@@ -150,7 +162,7 @@ auto TaskScheduler::execute() -> void {
             ovex->io_failed(err_code);
             continue;
           }
-          ovex->io_succeed(bytes_transferred);
+          ovex->io_received(bytes_transferred);
         } break;
 
         case TcpIoType::RecvAll: {
@@ -165,7 +177,7 @@ auto TaskScheduler::execute() -> void {
             ovex->io_failed(err_code);
             continue;
           }
-          ovex->io_succeed(bytes_transferred);
+          ovex->io_sent(bytes_transferred);
         } break;
 
         case TcpIoType::SendAll: {

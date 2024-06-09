@@ -1,5 +1,6 @@
 #include "cotask.hpp"
 #include "tcp.hpp"
+
 #include <cotask/impl.hpp>
 #include <cotask/utils.hpp>
 
@@ -107,7 +108,7 @@ TcpAcceptResult::TcpAcceptResult(bool finished, bool success, TcpSocket *accept_
   }
 }
 
-auto OverlappedTcpAccept::io_succeed() -> void {
+auto OverlappedTcpAccept::io_received(DWORD) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
@@ -165,7 +166,7 @@ TcpAccept::~TcpAccept() {
 // Connect
 namespace cotask {
 
-auto OverlappedTcpConnect::io_succeed() -> void {
+auto OverlappedTcpConnect::io_received(DWORD) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
@@ -314,7 +315,7 @@ auto TcpSocket::close() -> bool {
 // RecvOnce
 namespace cotask {
 
-auto OverlappedTcpRecvOnce::io_succeed(DWORD bytes_received) -> void {
+auto OverlappedTcpRecvOnce::io_received(DWORD bytes_received) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
@@ -368,13 +369,13 @@ TcpRecvOnce::~TcpRecvOnce() {
 // RecvAll
 namespace cotask {
 
-auto OverlappedTcpRecvAll::io_received(DWORD bytes_received) -> void {
-  // TOOD
-}
-
 auto OverlappedTcpRecvAll::io_request() -> bool {
   // TODO
   return true;
+}
+
+auto OverlappedTcpRecvAll::io_received(DWORD bytes_received) -> void {
+  // TOOD
 }
 
 auto OverlappedTcpRecvAll::io_failed(DWORD err_code) -> void {
@@ -404,7 +405,7 @@ TcpRecvAll::~TcpRecvAll() {
 // SendOnce
 namespace cotask {
 
-auto OverlappedTcpSendOnce::io_succeed(DWORD bytes_sent) -> void {
+auto OverlappedTcpSendOnce::io_sent(DWORD bytes_sent) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
@@ -455,13 +456,13 @@ TcpSendOnce::~TcpSendOnce() {
 // SendAll
 namespace cotask {
 
-auto OverlappedTcpSendAll::io_sent(DWORD bytes_sent) -> void {
-  // TODO
-}
-
 auto OverlappedTcpSendAll::io_request() -> bool {
   // TODO
   return true;
+}
+
+auto OverlappedTcpSendAll::io_sent(DWORD bytes_sent) -> void {
+  // TODO
 }
 
 auto OverlappedTcpSendAll::io_failed(DWORD err_code) -> void {

@@ -44,7 +44,7 @@ struct OverlappedTcpAccept : public OVERLAPPED {
 
   inline explicit OverlappedTcpAccept(TcpAccept *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
-  auto io_succeed() -> void;
+  auto io_received(DWORD bytes_received) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
@@ -68,7 +68,7 @@ struct OverlappedTcpConnect : public OVERLAPPED {
 
   inline explicit OverlappedTcpConnect(TcpConnect *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
-  auto io_succeed() -> void;
+  auto io_received(DWORD bytes_received) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
@@ -89,7 +89,7 @@ struct OverlappedTcpRecvOnce : public OVERLAPPED {
 
   inline explicit OverlappedTcpRecvOnce(TcpRecvOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
-  auto io_succeed(DWORD bytes_received) -> void;
+  auto io_received(DWORD bytes_received) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
@@ -110,8 +110,8 @@ struct OverlappedTcpRecvAll : public OVERLAPPED {
 
   inline explicit OverlappedTcpRecvAll(TcpRecvAll *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
-  auto io_received(DWORD bytes_transferred) -> void;
   auto io_request() -> bool;
+  auto io_received(DWORD bytes_received) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
@@ -132,7 +132,7 @@ struct OverlappedTcpSendOnce : public OVERLAPPED {
 
   inline explicit OverlappedTcpSendOnce(TcpSendOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
-  auto io_succeed(DWORD bytes_sent) -> void;
+  auto io_sent(DWORD bytes_sent) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
@@ -153,8 +153,8 @@ struct OverlappedTcpSendAll : public OVERLAPPED {
 
   inline explicit OverlappedTcpSendAll(TcpSendAll *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
-  auto io_sent(DWORD bytes_transferred) -> void;
   auto io_request() -> bool;
+  auto io_sent(DWORD bytes_sent) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 

@@ -9,6 +9,8 @@
 
 namespace cotask {
 
+struct FileReader;
+
 struct FileReadBufResult {
   bool finished = false;
   bool success = false;
@@ -27,12 +29,9 @@ struct FileReadBufResult {
 struct FileReadBuf {
   friend TaskScheduler;
 
-public:
-  const AsyncIoType type = AsyncIoType::FileReadBuf;
-
 private:
   struct Impl;
-  alignas(8) std::uint8_t impl_storage[40]{};
+  alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
 private:
@@ -42,16 +41,17 @@ private:
   bool finished = false;
   bool success = false;
 
-  const std::filesystem::path path;
+  FileReader *reader;
   std::span<char> buf;
   std::uint32_t bytes_read = 0;
   std::uint64_t offset = 0;
 
 public:
-  FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, std::uint64_t offset = 0);
+  FileReadBuf(TaskScheduler &ts, FileReader *reader, std::span<char> buf, std::uint64_t offset = 0);
+  inline FileReadBuf(const FileReadBuf &other) = delete;
   ~FileReadBuf();
 
-  auto io_received(std::uint32_t bytes_transferred) -> void;
+  auto io_read(std::uint32_t bytes_read) -> void;
   auto io_failed(std::uint32_t err_code) -> void;
 
   inline auto await_ready() -> bool {
@@ -97,12 +97,9 @@ struct FileReadAllResult {
 struct FileReadAll {
   friend TaskScheduler;
 
-public:
-  const AsyncIoType type = AsyncIoType::FileReadAll;
-
 private:
   struct Impl;
-  alignas(8) std::uint8_t impl_storage[40]{};
+  alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
 private:
@@ -112,18 +109,19 @@ private:
   bool finished = false;
   bool success = false;
 
-  const std::filesystem::path path;
+  FileReader *reader;
   std::array<char, 500> buf;
   std::uint32_t bytes_read = 0;
   std::uint64_t offset = 0;
   std::vector<char> content;
 
 public:
-  FileReadAll(TaskScheduler &ts, const std::filesystem::path &path, std::uint64_t offset = 0);
+  FileReadAll(TaskScheduler &ts, FileReader *reader, std::uint64_t offset = 0);
+  inline FileReadAll(const FileReadAll &other) = delete;
   ~FileReadAll();
 
   auto io_request() -> bool;
-  auto io_received(std::uint32_t bytes_transferred) -> void;
+  auto io_read(std::uint32_t bytes_transferred) -> void;
   auto io_failed(std::uint32_t err_code) -> void;
 
   inline auto await_ready() -> bool {
@@ -149,6 +147,35 @@ public:
       .content = content,
     };
   }
+};
+
+struct FileReader {
+public:
+  const AsyncIoType type = AsyncIoType::FileRead;
+
+public:
+  struct Impl;
+  alignas(8) std::uint8_t impl_storage[8]{};
+  Impl *impl;
+
+public:
+  TaskScheduler &ts;
+  const std::filesystem::path path;
+
+public:
+  FileReader(TaskScheduler &ts, const std::filesystem::path &path);
+  ~FileReader();
+
+public:
+  inline auto read_buf(std::span<char> buf, std::size_t offset = 0) -> FileReadBuf {
+    return {ts, this, buf, offset};
+  }
+
+  inline auto read_all(std::size_t offset = 0) -> FileReadAll {
+    return {ts, this, offset};
+  }
+
+  auto close() -> void;
 };
 
 } // namespace cotask

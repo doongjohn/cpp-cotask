@@ -8,13 +8,18 @@
 namespace cotask {
 
 enum struct AsyncIoType {
-  FileReadBuf,
-  FileReadAll,
+  FileRead,
+  FileWrite, // TODO
   TcpSocket,
 };
 
 struct AsyncIoBase {
   const AsyncIoType type;
+};
+
+enum struct FileIoType {
+  ReadBuf,
+  ReadAll,
 };
 
 enum struct TcpIoType {
