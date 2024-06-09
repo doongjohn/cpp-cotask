@@ -63,17 +63,16 @@ struct TcpAcceptResult {
 };
 
 struct TcpAccept {
-  friend TcpSocket;
   friend TaskScheduler;
 
-public:
+private:
   struct Impl;
-  alignas(8) std::uint8_t impl_storage[48]{};
+  alignas(8) std::uint8_t impl_storage[144]{};
   Impl *impl;
 
+public:
   TcpSocket &tcp_socket;
   TaskScheduler &ts;
-  std::coroutine_handle<> cohandle = nullptr;
   bool *is_waiting = nullptr;
 
   bool finished = false;
@@ -92,14 +91,12 @@ public:
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
@@ -115,17 +112,16 @@ struct TcpConnectResult {
 };
 
 struct TcpConnect {
-  friend TcpSocket;
   friend TaskScheduler;
 
-public:
+private:
   struct Impl;
   alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+public:
   TcpSocket &tcp_socket;
   TaskScheduler &ts;
-  std::coroutine_handle<> cohandle = nullptr;
   bool *is_waiting = nullptr;
 
   bool finished = false;
@@ -143,14 +139,12 @@ public:
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
@@ -178,17 +172,16 @@ struct TcpRecvResult {
 };
 
 struct TcpRecvOnce {
-  friend TcpSocket;
   friend TaskScheduler;
 
-public:
+private:
   struct Impl;
   alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+public:
   TcpSocket &tcp_socket;
   TaskScheduler &ts;
-  std::coroutine_handle<> cohandle = nullptr;
   bool *is_waiting = nullptr;
 
   bool finished = false;
@@ -209,14 +202,12 @@ public:
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
@@ -231,17 +222,16 @@ public:
 };
 
 struct TcpRecvAll {
-  friend TcpSocket;
   friend TaskScheduler;
 
-public:
+private:
   struct Impl;
   alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+public:
   TcpSocket &tcp_socket;
   TaskScheduler &ts;
-  std::coroutine_handle<> cohandle = nullptr;
   bool *is_waiting = nullptr;
 
   bool finished = false;
@@ -261,14 +251,12 @@ public:
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
@@ -289,17 +277,16 @@ struct TcpSendResult {
 };
 
 struct TcpSendOnce {
-  friend TcpSocket;
   friend TaskScheduler;
 
-public:
+private:
   struct Impl;
   alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+public:
   TcpSocket &tcp_socket;
   TaskScheduler &ts;
-  std::coroutine_handle<> cohandle = nullptr;
   bool *is_waiting = nullptr;
 
   bool finished = false;
@@ -320,14 +307,12 @@ public:
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
@@ -342,17 +327,16 @@ public:
 };
 
 struct TcpSendAll {
-  friend TcpSocket;
   friend TaskScheduler;
 
-public:
+private:
   struct Impl;
   alignas(8) std::uint8_t impl_storage[48]{};
   Impl *impl;
 
+public:
   TcpSocket &tcp_socket;
   TaskScheduler &ts;
-  std::coroutine_handle<> cohandle = nullptr;
   bool *is_waiting = nullptr;
 
   bool finished = false;
@@ -372,14 +356,12 @@ public:
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }

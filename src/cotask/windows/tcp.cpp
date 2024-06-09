@@ -140,10 +140,8 @@ TcpAccept::TcpAccept(TcpSocket *sock, TcpSocket *accept_socket)
   }
 
   // accept
-  alignas(8) std::uint8_t addr_buf[88]{};
-  auto bytes_recived = DWORD{};
-  auto accept_success = ::AcceptEx(tcp_socket.impl->socket, conn_socket, addr_buf, 0, sizeof(addr_buf) / 2,
-                                   sizeof(addr_buf) / 2, &bytes_recived, &impl->ovex);
+  auto accept_success = ::AcceptEx(tcp_socket.impl->socket, conn_socket, impl->addr_buf, 0, sizeof(impl->addr_buf) / 2,
+                                   sizeof(impl->addr_buf) / 2, &impl->bytes_received, &impl->ovex);
   if (not accept_success) {
     const auto err_code = ::WSAGetLastError();
     if (err_code != WSA_IO_PENDING) {
@@ -315,14 +313,14 @@ auto TcpSocket::close() -> bool {
 // RecvOnce
 namespace cotask {
 
-auto OverlappedTcpRecvOnce::io_succeed(DWORD bytes_recived) -> void {
+auto OverlappedTcpRecvOnce::io_succeed(DWORD bytes_received) -> void {
   if (awaitable->is_waiting != nullptr) {
     *awaitable->is_waiting = false;
   }
   awaitable->finished = true;
   awaitable->success = true;
-  awaitable->bytes_received = bytes_recived;
-  awaitable->buf = {awaitable->buf.data(), bytes_recived};
+  awaitable->bytes_received = bytes_received;
+  awaitable->buf = {awaitable->buf.data(), bytes_received};
 }
 
 auto OverlappedTcpRecvOnce::io_failed(DWORD err_code) -> void {
@@ -369,7 +367,7 @@ TcpRecvOnce::~TcpRecvOnce() {
 // RecvAll
 namespace cotask {
 
-auto OverlappedTcpRecvAll::io_recived(DWORD bytes_recived) -> void {
+auto OverlappedTcpRecvAll::io_received(DWORD bytes_received) -> void {
   // TOOD
 }
 

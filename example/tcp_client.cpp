@@ -5,7 +5,7 @@
 
 #include <cotask/tcp.hpp>
 
-[[nodiscard]] auto async_fn(cotask::TaskScheduler &ts) -> cotask::Task<void> {
+auto async_client(cotask::TaskScheduler &ts) -> cotask::Task<void> {
   std::cout << "client - connect\n";
   auto conn_socket = cotask::TcpSocket{ts};
   auto connect_result = co_await cotask::TcpConnect{&conn_socket, "localhost", "8000"};
@@ -49,7 +49,7 @@ auto main() -> int {
   cotask::init();
 
   auto ts = cotask::TaskScheduler{};
-  ts.schedule_from_sync(async_fn(ts));
+  ts.schedule_from_sync(async_client(ts));
   ts.execute();
 
   cotask::deinit();

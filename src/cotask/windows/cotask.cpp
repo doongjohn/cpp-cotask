@@ -5,8 +5,6 @@
 #include <cotask/utils.hpp>
 
 #include <cassert>
-#include <thread>
-#include <mutex>
 #include <array>
 #include <ranges>
 #include <iostream>
@@ -49,159 +47,142 @@ TaskScheduler::~TaskScheduler() {
 }
 
 auto TaskScheduler::execute() -> void {
-  auto m = std::mutex{};
-
-  auto iocp_thread = std::jthread{[this, &m]() {
-    constexpr auto max_count = 10ul;
-    auto entries = std::array<OVERLAPPED_ENTRY, max_count>{};
-    auto num_entries = ULONG{};
-
-    while (true) {
-      // check io compeletion
-      if (not ::GetQueuedCompletionStatusEx(impl->iocp_handle, entries.data(), max_count, &num_entries, INFINITE,
-                                            FALSE)) {
-        const auto err_code = ::GetLastError();
-        if (err_code == WAIT_TIMEOUT) {
-          continue;
-        } else {
-          std::cerr << utils::with_location(std::format("GetQueuedCompletionStatusEx failed: {}", err_code))
-                    << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-          return;
-        }
-      }
-
-      auto lock = std::scoped_lock{m};
-
-      // handle io compeletion
-      for (const auto entry : std::span{entries.data(), num_entries}) {
-        if (entry.lpCompletionKey == 0) {
-          return;
-        }
-
-        const auto completion_key = std::bit_cast<AsyncIoBase *>(entry.lpCompletionKey);
-        const auto overlapped = entry.lpOverlapped;
-        const auto bytes_transferred = entry.dwNumberOfBytesTransferred;
-
-        auto n = DWORD{};
-        switch (completion_key->type) {
-        case AsyncIoType::FileReadBuf: {
-          auto io_task = reinterpret_cast<FileReadBuf *>(completion_key);
-          if (not ::GetOverlappedResult(io_task->impl->file_handle, overlapped, &n, TRUE)) {
-            const auto err_code = ::GetLastError();
-            if (err_code != ERROR_HANDLE_EOF) {
-              io_task->io_failed(err_code);
-              continue;
-            }
-          }
-          io_task->io_recived(bytes_transferred);
-        } break;
-
-        case AsyncIoType::FileReadAll: {
-          auto io_task = reinterpret_cast<FileReadAll *>(completion_key);
-          if (not ::GetOverlappedResult(io_task->impl->file_handle, overlapped, &n, TRUE)) {
-            const auto err_code = ::GetLastError();
-            if (err_code != ERROR_HANDLE_EOF) {
-              io_task->io_failed(err_code);
-              continue;
-            }
-          }
-          io_task->io_recived(bytes_transferred);
-        } break;
-
-        case AsyncIoType::TcpSocket: {
-          auto tcp_socket = reinterpret_cast<TcpSocket *>(completion_key);
-          auto ov = reinterpret_cast<OverlappedTcp *>(overlapped);
-          auto flags = DWORD{};
-
-          switch (ov->type) {
-          case TcpIoType::Accept: {
-            auto ovex = reinterpret_cast<OverlappedTcpAccept *>(ov);
-            if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
-              const auto err_code = ::GetLastError();
-              ovex->io_failed(err_code);
-              continue;
-            }
-            ovex->io_succeed();
-          } break;
-
-          case TcpIoType::Connect: {
-            auto ovex = reinterpret_cast<OverlappedTcpConnect *>(ov);
-            if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
-              const auto err_code = ::GetLastError();
-              ovex->io_failed(err_code);
-              continue;
-            }
-            ovex->io_succeed();
-          } break;
-
-          case TcpIoType::RecvOnce: {
-            auto ovex = reinterpret_cast<OverlappedTcpRecvOnce *>(ov);
-            if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
-              const auto err_code = ::GetLastError();
-              ovex->io_failed(err_code);
-              continue;
-            }
-            ovex->io_succeed(bytes_transferred);
-          } break;
-
-          case TcpIoType::RecvAll: {
-            // TODO
-            // auto ovex = reinterpret_cast<OverlappedTcpRecvAll *>(ov);
-          } break;
-
-          case TcpIoType::SendOnce: {
-            auto ovex = reinterpret_cast<OverlappedTcpSendOnce *>(ov);
-            if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
-              const auto err_code = ::GetLastError();
-              ovex->io_failed(err_code);
-              continue;
-            }
-            ovex->io_succeed(bytes_transferred);
-          } break;
-
-          case TcpIoType::SendAll: {
-            // TODO
-            // auto ovex = reinterpret_cast<OverlappedTcpSendAll *>(ov);
-          } break;
-          }
-        } break;
-        }
-      }
-    }
-  }};
+  constexpr auto max_count = 10lu;
+  auto entries = std::array<OVERLAPPED_ENTRY, max_count>{};
+  auto num_entries = ULONG{};
 
   // event loop
-  while (true) {
-    auto lock = std::scoped_lock{m};
-    if (async_tasks.empty()) {
-      break;
-    }
-
-    // resume task
-    auto task = async_tasks.front();
+  while (not tasks.empty()) {
+    // resume a task (round-robin)
+    auto task = tasks.front();
+    tasks.pop_front();
     if (task.can_resume()) {
       task.resume();
     }
     if (not task.done()) {
-      async_tasks.push_back(task);
+      tasks.push_back(task);
     }
-    async_tasks.pop_front();
 
-    // destroy ended coroutine
+    // destroy ended coroutines
     for (auto &cohandle : ended_task | std::views::reverse) {
       cohandle.destroy();
     }
     ended_task.clear();
+
+    // check io compeletions
+    if (not ::GetQueuedCompletionStatusEx(impl->iocp_handle, entries.data(), max_count, &num_entries, 0, FALSE)) {
+      const auto err_code = ::GetLastError();
+      if (err_code == WAIT_TIMEOUT) {
+        continue;
+      } else {
+        std::cerr << utils::with_location(std::format("GetQueuedCompletionStatusEx failed: {}", err_code))
+                  << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+        return;
+      }
+    }
+
+    // handle io compeletions
+    for (const auto entry : std::span{entries.data(), num_entries}) {
+      if (entry.lpCompletionKey == 0) {
+        return;
+      }
+
+      const auto completion_key = std::bit_cast<AsyncIoBase *>(entry.lpCompletionKey);
+      const auto overlapped = entry.lpOverlapped;
+      const auto bytes_transferred = entry.dwNumberOfBytesTransferred;
+
+      auto n = DWORD{};
+      switch (std::bit_cast<AsyncIoBase *>(completion_key)->type) {
+      case AsyncIoType::FileReadBuf: {
+        auto io_task = std::bit_cast<FileReadBuf *>(completion_key);
+        if (not ::GetOverlappedResult(io_task->impl->file_handle, overlapped, &n, TRUE)) {
+          const auto err_code = ::GetLastError();
+          if (err_code != ERROR_HANDLE_EOF) {
+            io_task->io_failed(err_code);
+            continue;
+          }
+        }
+        io_task->io_received(bytes_transferred);
+      } break;
+
+      case AsyncIoType::FileReadAll: {
+        auto io_task = std::bit_cast<FileReadAll *>(completion_key);
+        if (not ::GetOverlappedResult(io_task->impl->file_handle, overlapped, &n, TRUE)) {
+          const auto err_code = ::GetLastError();
+          if (err_code != ERROR_HANDLE_EOF) {
+            io_task->io_failed(err_code);
+            continue;
+          }
+        }
+        io_task->io_received(bytes_transferred);
+      } break;
+
+      case AsyncIoType::TcpSocket: {
+        auto tcp_socket = std::bit_cast<TcpSocket *>(completion_key);
+        auto ov = reinterpret_cast<OverlappedTcp *>(overlapped);
+        auto flags = DWORD{};
+
+        switch (ov->type) {
+        case TcpIoType::Accept: {
+          auto ovex = reinterpret_cast<OverlappedTcpAccept *>(ov);
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
+            const auto err_code = ::GetLastError();
+            ovex->io_failed(err_code);
+            continue;
+          }
+          ovex->io_succeed();
+        } break;
+
+        case TcpIoType::Connect: {
+          auto ovex = reinterpret_cast<OverlappedTcpConnect *>(ov);
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
+            const auto err_code = ::GetLastError();
+            ovex->io_failed(err_code);
+            continue;
+          }
+          ovex->io_succeed();
+        } break;
+
+        case TcpIoType::RecvOnce: {
+          auto ovex = reinterpret_cast<OverlappedTcpRecvOnce *>(ov);
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
+            const auto err_code = ::GetLastError();
+            ovex->io_failed(err_code);
+            continue;
+          }
+          ovex->io_succeed(bytes_transferred);
+        } break;
+
+        case TcpIoType::RecvAll: {
+          // TODO
+          // auto ovex = reinterpret_cast<OverlappedTcpRecvAll *>(ov);
+        } break;
+
+        case TcpIoType::SendOnce: {
+          auto ovex = reinterpret_cast<OverlappedTcpSendOnce *>(ov);
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
+            const auto err_code = ::GetLastError();
+            ovex->io_failed(err_code);
+            continue;
+          }
+          ovex->io_succeed(bytes_transferred);
+        } break;
+
+        case TcpIoType::SendAll: {
+          // TODO
+          // auto ovex = reinterpret_cast<OverlappedTcpSendAll *>(ov);
+        } break;
+        }
+      } break;
+      }
+    }
   }
 
-  // destroy ended coroutine
-  for (auto &cohandle : from_sync_tasks | std::views::reverse) {
+  // destroy top level coroutines
+  for (auto &cohandle : top_level_tasks | std::views::reverse) {
     cohandle.destroy();
   }
-  from_sync_tasks.clear();
-
-  // post empty compeletion
-  ::PostQueuedCompletionStatus(impl->iocp_handle, 0, 0, nullptr);
+  top_level_tasks.clear();
 }
 
 } // namespace cotask

@@ -58,7 +58,7 @@ FileReadBuf::~FileReadBuf() {
   std::destroy_at(impl);
 }
 
-auto FileReadBuf::io_recived(std::uint32_t bytes_transferred) -> void {
+auto FileReadBuf::io_received(std::uint32_t bytes_transferred) -> void {
   // check finished
   if (bytes_transferred <= buf.size()) {
     ::CloseHandle(impl->file_handle);
@@ -139,7 +139,7 @@ auto FileReadAll::io_request() -> bool {
   return true;
 }
 
-auto FileReadAll::io_recived(std::uint32_t bytes_transferred) -> void {
+auto FileReadAll::io_received(std::uint32_t bytes_transferred) -> void {
   // append bytes
   offset += bytes_transferred;
   impl->ov.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
@@ -157,7 +157,8 @@ auto FileReadAll::io_recived(std::uint32_t bytes_transferred) -> void {
   }
 
   // read more bytes
-  if (not io_request()) {
+  auto read_success = io_request();
+  if (not read_success) {
     if (is_waiting != nullptr) {
       *is_waiting = false;
     }
@@ -165,14 +166,14 @@ auto FileReadAll::io_recived(std::uint32_t bytes_transferred) -> void {
 }
 
 auto FileReadAll::io_failed(std::uint32_t err_code) -> void {
-  std::cerr << utils::with_location(std::format("FileReadAll compeletion failed: {}", err_code))
-            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-
   ::CloseHandle(impl->file_handle);
   success = false;
   if (is_waiting != nullptr) {
     *is_waiting = false;
   }
+
+  std::cerr << utils::with_location(std::format("FileReadAll compeletion failed: {}", err_code))
+            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 
 } // namespace cotask

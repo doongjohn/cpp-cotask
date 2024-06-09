@@ -65,9 +65,9 @@ public:
   Impl *impl;
 
 private:
-  std::deque<ScheduledTask> async_tasks;
+  std::deque<ScheduledTask> tasks;
   std::vector<std::coroutine_handle<>> ended_task;
-  std::vector<std::coroutine_handle<>> from_sync_tasks;
+  std::vector<std::coroutine_handle<>> top_level_tasks;
 
 public:
   TaskScheduler();
@@ -84,7 +84,7 @@ public:
   inline auto schedule_from_sync(Task<T> &&task) -> void;
 
   inline auto schedule_from_task(ScheduledTask task) -> void {
-    async_tasks.push_back(task);
+    tasks.push_back(task);
   }
 
   auto execute() -> void;
@@ -100,7 +100,7 @@ struct TaskPromise {
   bool *outer_is_waiting = nullptr;
   bool is_waiting = false;
 
-  inline explicit TaskPromise(TaskScheduler &ts) : ts(ts) {}
+  inline explicit TaskPromise(TaskScheduler &ts) : ts{ts} {}
 };
 
 template <>
@@ -110,7 +110,7 @@ struct Task<void> {
 
   struct promise_type : public TaskPromise {
     template <typename... Args>
-    promise_type(TaskScheduler &ts, Args...) : TaskPromise{ts} {}
+    inline promise_type(TaskScheduler &ts, Args...) : TaskPromise{ts} {}
 
     inline auto get_return_object() -> Task {
       return Task{coro_handle::from_promise(*this)};
@@ -178,7 +178,7 @@ struct Task {
     T result;
 
     template <typename... Args>
-    promise_type(TaskScheduler &ts, Args...) : TaskPromise{ts} {}
+    inline promise_type(TaskScheduler &ts, Args...) : TaskPromise{ts} {}
 
     inline auto get_return_object() -> Task {
       return Task{coro_handle::from_promise(*this)};
@@ -243,7 +243,7 @@ struct Task {
 
 template <typename T>
 inline auto TaskScheduler::schedule_from_sync(Task<T> &&task) -> void {
-  from_sync_tasks.push_back(task.cohandle);
+  top_level_tasks.push_back(task.cohandle);
 }
 
 } // namespace cotask

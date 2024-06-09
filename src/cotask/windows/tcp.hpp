@@ -51,6 +51,9 @@ struct OverlappedTcpAccept : public OVERLAPPED {
 struct TcpAccept::Impl {
   OverlappedTcpAccept ovex;
 
+  alignas(8) std::uint8_t addr_buf[88]{};
+  DWORD bytes_received = 0;
+
   inline explicit Impl(TcpAccept *awaitable) : ovex{awaitable} {}
 };
 
@@ -86,7 +89,7 @@ struct OverlappedTcpRecvOnce : public OVERLAPPED {
 
   inline explicit OverlappedTcpRecvOnce(TcpRecvOnce *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
-  auto io_succeed(DWORD bytes_recived) -> void;
+  auto io_succeed(DWORD bytes_received) -> void;
   auto io_failed(DWORD err_code) -> void;
 };
 
@@ -107,7 +110,7 @@ struct OverlappedTcpRecvAll : public OVERLAPPED {
 
   inline explicit OverlappedTcpRecvAll(TcpRecvAll *awaitable) : OVERLAPPED{}, awaitable{awaitable} {}
 
-  auto io_recived(DWORD bytes_transferred) -> void;
+  auto io_received(DWORD bytes_transferred) -> void;
   auto io_request() -> bool;
   auto io_failed(DWORD err_code) -> void;
 };

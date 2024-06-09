@@ -35,8 +35,8 @@ private:
   alignas(8) std::uint8_t impl_storage[40]{};
   Impl *impl;
 
+private:
   TaskScheduler &ts;
-  std::coroutine_handle<> cohandle = nullptr;
   bool *is_waiting = nullptr;
 
   bool finished = false;
@@ -50,7 +50,7 @@ public:
   FileReadBuf(TaskScheduler &ts, const std::filesystem::path &path, std::span<char> buf, std::uint64_t offset = 0);
   ~FileReadBuf();
 
-  auto io_recived(std::uint32_t bytes_transferred) -> void;
+  auto io_received(std::uint32_t bytes_transferred) -> void;
   auto io_failed(std::uint32_t err_code) -> void;
 
   inline auto await_ready() -> bool {
@@ -59,14 +59,12 @@ public:
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
@@ -106,8 +104,8 @@ private:
   alignas(8) std::uint8_t impl_storage[40]{};
   Impl *impl;
 
+private:
   TaskScheduler &ts;
-  std::coroutine_handle<> cohandle = nullptr;
   bool *is_waiting = nullptr;
 
   bool finished = false;
@@ -123,7 +121,7 @@ public:
   ~FileReadAll();
 
   auto io_request() -> bool;
-  auto io_recived(std::uint32_t bytes_transferred) -> void;
+  auto io_received(std::uint32_t bytes_transferred) -> void;
   auto io_failed(std::uint32_t err_code) -> void;
 
   inline auto await_ready() -> bool {
@@ -132,14 +130,12 @@ public:
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
-    this->cohandle = cohandle;
     this->is_waiting = &cohandle.promise().is_waiting;
     *this->is_waiting = true;
   }
