@@ -12,11 +12,11 @@
 namespace cotask {
 
 TcpSocket::TcpSocket(TaskScheduler &ts) : ts{ts} {
-  CONSTRUCT_IMPL();
+  IMPL_CONSTRUCT();
 }
 
 TcpSocket::TcpSocket(const TcpSocket &other) : ts{other.ts} {
-  COPY_IMPL(*other.impl);
+  IMPL_COPY(*other.impl);
 }
 
 TcpSocket::~TcpSocket() {
@@ -129,7 +129,7 @@ auto OverlappedTcpAccept::io_failed(DWORD err_code) -> void {
 
 TcpAccept::TcpAccept(TcpSocket *sock, TcpSocket *accept_socket)
     : tcp_socket{*sock}, ts{sock->ts}, accept_socket{accept_socket} {
-  CONSTRUCT_IMPL(this);
+  IMPL_CONSTRUCT(this);
 
   // create socket
   auto conn_socket = ::WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_IP, nullptr, 0, WSA_FLAG_OVERLAPPED);
@@ -186,7 +186,7 @@ auto OverlappedTcpConnect::io_failed(DWORD err_code) -> void {
 }
 
 TcpConnect::TcpConnect(TcpSocket *sock, std::string_view ip, std::string_view port) : tcp_socket{*sock}, ts{sock->ts} {
-  CONSTRUCT_IMPL(this);
+  IMPL_CONSTRUCT(this);
 
   // create socket
   tcp_socket.impl->socket = ::WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_IP, nullptr, 0, WSA_FLAG_OVERLAPPED);
@@ -337,7 +337,7 @@ auto OverlappedTcpRecv ::io_failed(DWORD err_code) -> void {
 }
 
 TcpRecv::TcpRecv(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
-  CONSTRUCT_IMPL(this);
+  IMPL_CONSTRUCT(this);
 
   auto wsa_buf = WSABUF{
     .len = static_cast<ULONG>(buf.size()),
@@ -390,7 +390,7 @@ auto OverlappedTcpRecvAll::io_failed(DWORD err_code) -> void {
 }
 
 TcpRecvAll::TcpRecvAll(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
-  CONSTRUCT_IMPL(this);
+  IMPL_CONSTRUCT(this);
   // TODO
 
   success = true;
@@ -426,7 +426,7 @@ auto OverlappedTcpSend ::io_failed(DWORD err_code) -> void {
 }
 
 TcpSend::TcpSend(TcpSocket *sock, std::span<const char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
-  CONSTRUCT_IMPL(this);
+  IMPL_CONSTRUCT(this);
 
   auto wsa_buf = WSABUF{
     .len = static_cast<ULONG>(buf.size()),
@@ -470,7 +470,7 @@ auto OverlappedTcpSendAll::io_failed(DWORD err_code) -> void {
 }
 
 TcpSendAll::TcpSendAll(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
-  CONSTRUCT_IMPL(this);
+  IMPL_CONSTRUCT(this);
   // TODO
 
   success = true;

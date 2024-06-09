@@ -10,7 +10,7 @@ namespace cotask {
 
 FileReadBuf::FileReadBuf(TaskScheduler &ts, FileReader *reader, std::span<char> buf, std::uint64_t offset)
     : ts{ts}, reader{reader}, buf{buf}, offset{offset} {
-  CONSTRUCT_IMPL(this);
+  IMPL_CONSTRUCT(this);
 
   // setup OVERLAPPED
   impl->ovex.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
@@ -59,7 +59,7 @@ auto FileReadBuf::io_failed(std::uint32_t err_code) -> void {
 
 FileReadAll::FileReadAll(TaskScheduler &ts, FileReader *reader, std::size_t offset)
     : ts{ts}, reader{reader}, offset{offset} {
-  CONSTRUCT_IMPL(this);
+  IMPL_CONSTRUCT(this);
 
   // setup OVERLAPPED
   impl->ovex.Offset = static_cast<std::uint32_t>(offset);           // low 32bits
@@ -132,7 +132,7 @@ auto FileReadAll::io_failed(std::uint32_t err_code) -> void {
 }
 
 FileReader::FileReader(TaskScheduler &ts, const std::filesystem::path &path) : ts{ts}, path{path} {
-  CONSTRUCT_IMPL();
+  IMPL_CONSTRUCT();
 
   // open file
   impl->file_handle =

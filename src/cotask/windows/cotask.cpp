@@ -30,7 +30,7 @@ auto net_deinit() -> void {
 }
 
 TaskScheduler::TaskScheduler() {
-  CONSTRUCT_IMPL();
+  IMPL_CONSTRUCT();
 
   impl->iocp_handle = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
   if (impl->iocp_handle == nullptr) {
