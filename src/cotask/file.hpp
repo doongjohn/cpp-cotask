@@ -14,7 +14,6 @@ struct FileReader;
 struct FileReadBufResult {
   bool finished = false;
   bool success = false;
-
   std::span<char> buf;
 
   [[nodiscard]] inline auto get_string() const -> std::string {
@@ -82,7 +81,6 @@ public:
 struct FileReadAllResult {
   bool finished = false;
   bool success = false;
-
   std::vector<char> content;
 
   [[nodiscard]] inline auto get_string() const -> std::string {
