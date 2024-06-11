@@ -108,25 +108,6 @@ TcpAcceptResult::TcpAcceptResult(bool finished, bool success, TcpSocket *accept_
   }
 }
 
-auto OverlappedTcpAccept::io_received(DWORD) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = true;
-}
-
-auto OverlappedTcpAccept::io_failed(DWORD err_code) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = false;
-
-  std::cerr << utils::with_location(std::format("TcpAccept compeletion failed: {}", err_code))
-            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-}
-
 TcpAccept::TcpAccept(TcpSocket *sock, TcpSocket *accept_socket)
     : tcp_socket{*sock}, ts{sock->ts}, accept_socket{accept_socket} {
   IMPL_CONSTRUCT(this);
@@ -161,29 +142,29 @@ TcpAccept::~TcpAccept() {
   std::destroy_at(impl);
 }
 
+auto TcpAccept::io_received(std::uint32_t) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = true;
+}
+
+auto TcpAccept::io_failed(std::uint32_t err_code) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = false;
+
+  std::cerr << utils::with_location(std::format("TcpAccept compeletion failed: {}", err_code))
+            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+}
+
 } // namespace cotask
 
 // Connect
 namespace cotask {
-
-auto OverlappedTcpConnect::io_received(DWORD) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = true;
-}
-
-auto OverlappedTcpConnect::io_failed(DWORD err_code) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = false;
-
-  std::cerr << utils::with_location(std::format("TcpConnect compeletion failed: {}", err_code))
-            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-}
 
 TcpConnect::TcpConnect(TcpSocket *sock, std::string_view ip, std::string_view port) : tcp_socket{*sock}, ts{sock->ts} {
   IMPL_CONSTRUCT(this);
@@ -271,6 +252,25 @@ TcpConnect::~TcpConnect() {
   std::destroy_at(impl);
 }
 
+auto TcpConnect::io_received(std::uint32_t) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = true;
+}
+
+auto TcpConnect::io_failed(std::uint32_t err_code) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = false;
+
+  std::cerr << utils::with_location(std::format("TcpConnect compeletion failed: {}", err_code))
+            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+}
+
 } // namespace cotask
 
 // Close
@@ -315,27 +315,6 @@ auto TcpSocket::close() -> bool {
 // Recv
 namespace cotask {
 
-auto OverlappedTcpRecv ::io_received(DWORD bytes_received) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = true;
-  awaitable->bytes_received = bytes_received;
-  awaitable->buf = {awaitable->buf.data(), bytes_received};
-}
-
-auto OverlappedTcpRecv ::io_failed(DWORD err_code) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = false;
-
-  std::cerr << utils::with_location(std::format("TcpRecv  compeletion failed: {}", err_code))
-            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-}
-
 TcpRecv::TcpRecv(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
   IMPL_CONSTRUCT(this);
 
@@ -364,34 +343,38 @@ TcpRecv::~TcpRecv() {
   std::destroy_at(impl);
 }
 
+auto TcpRecv::io_received(std::uint32_t bytes_received) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = true;
+  this->bytes_received = bytes_received;
+  buf = {buf.data(), bytes_received};
+}
+
+auto TcpRecv::io_failed(std::uint32_t err_code) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = false;
+
+  std::cerr << utils::with_location(std::format("TcpRecv  compeletion failed: {}", err_code))
+            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+}
+
 } // namespace cotask
 
 // RecvAll
 namespace cotask {
 
-auto OverlappedTcpRecvAll::io_request() -> bool {
-  // TODO
-  return true;
-}
-
-auto OverlappedTcpRecvAll::io_received(DWORD bytes_received) -> void {
-  // TOOD
-}
-
-auto OverlappedTcpRecvAll::io_failed(DWORD err_code) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = false;
-
-  std::cerr << utils::with_location(std::format("TcpRecvAll compeletion failed: {}", err_code))
-            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-}
-
 TcpRecvAll::TcpRecvAll(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
   IMPL_CONSTRUCT(this);
-  // TODO
+
+  if (not io_request()) {
+    return;
+  }
 
   success = true;
 }
@@ -400,30 +383,66 @@ TcpRecvAll::~TcpRecvAll() {
   std::destroy_at(impl);
 }
 
+auto TcpRecvAll::io_request() -> bool {
+  auto wsa_buf = WSABUF{
+    .len = static_cast<ULONG>(buf.size() - total_bytes_received),
+    .buf = buf.data() + total_bytes_received,
+  };
+  auto flags = ULONG{};
+
+  // recv
+  auto recv_result =
+    ::WSARecv(tcp_socket.impl->socket, &wsa_buf, 1ul, (PULONG)&bytes_received, &flags, &impl->ovex, nullptr);
+  if (recv_result != 0) {
+    const auto err_code = ::WSAGetLastError();
+    if (err_code != WSA_IO_PENDING) {
+      std::cerr << utils::with_location(std::format("WSARecv failed: {}", err_code))
+                << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+      return false;
+    }
+  }
+
+  return true;
+}
+
+auto TcpRecvAll::io_received(std::uint32_t bytes_received) -> void {
+  total_bytes_received += bytes_received;
+
+  // check finished
+  if (total_bytes_received == buf.size()) {
+    if (is_waiting != nullptr) {
+      *is_waiting = false;
+    }
+    finished = true;
+    success = true;
+    return;
+  }
+
+  // recv more bytes
+  if (not io_request()) {
+    if (is_waiting != nullptr) {
+      *is_waiting = false;
+    }
+    finished = true;
+    success = false;
+  }
+}
+
+auto TcpRecvAll::io_failed(std::uint32_t err_code) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = false;
+
+  std::cerr << utils::with_location(std::format("TcpRecvAll compeletion failed: {}", err_code))
+            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+}
+
 } // namespace cotask
 
 // Send
 namespace cotask {
-
-auto OverlappedTcpSend ::io_sent(DWORD bytes_sent) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = true;
-  awaitable->bytes_sent = bytes_sent;
-}
-
-auto OverlappedTcpSend ::io_failed(DWORD err_code) -> void {
-  if (awaitable->is_waiting != nullptr) {
-    *awaitable->is_waiting = false;
-  }
-  awaitable->finished = true;
-  awaitable->success = false;
-
-  std::cerr << utils::with_location(std::format("TcpSend  compeletion failed: {}", err_code))
-            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-}
 
 TcpSend::TcpSend(TcpSocket *sock, std::span<const char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
   IMPL_CONSTRUCT(this);
@@ -451,33 +470,97 @@ TcpSend::~TcpSend() {
   std::destroy_at(impl);
 }
 
+auto TcpSend::io_sent(std::uint32_t bytes_sent) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = true;
+  this->bytes_sent = bytes_sent;
+}
+
+auto TcpSend::io_failed(std::uint32_t err_code) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = false;
+
+  std::cerr << utils::with_location(std::format("TcpSend  compeletion failed: {}", err_code))
+            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+}
+
 } // namespace cotask
 
 // SendAll
 namespace cotask {
 
-auto OverlappedTcpSendAll::io_request() -> bool {
-  // TODO
-  return true;
-}
-
-auto OverlappedTcpSendAll::io_sent(DWORD bytes_sent) -> void {
-  // TODO
-}
-
-auto OverlappedTcpSendAll::io_failed(DWORD err_code) -> void {
-  // TODO
-}
-
 TcpSendAll::TcpSendAll(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
   IMPL_CONSTRUCT(this);
-  // TODO
+
+  if (not io_request()) {
+    return;
+  }
 
   success = true;
 }
 
 TcpSendAll::~TcpSendAll() {
   std::destroy_at(impl);
+}
+
+auto TcpSendAll::io_request() -> bool {
+  auto wsa_buf = WSABUF{
+    .len = static_cast<ULONG>(buf.size()),
+    .buf = const_cast<char *>(buf.data()),
+  };
+
+  // send
+  auto send_result = ::WSASend(tcp_socket.impl->socket, &wsa_buf, 1ul, (PULONG)&bytes_sent, 0, &impl->ovex, nullptr);
+  if (send_result != 0) {
+    const auto err_code = ::WSAGetLastError();
+    if (err_code != WSA_IO_PENDING) {
+      std::cerr << utils::with_location(std::format("WSASend failed: {}", err_code))
+                << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+      return false;
+    }
+  }
+
+  return true;
+}
+
+auto TcpSendAll::io_sent(std::uint32_t bytes_sent) -> void {
+  total_bytes_sent += bytes_sent;
+
+  // check finished
+  if (total_bytes_sent == buf.size()) {
+    if (is_waiting != nullptr) {
+      *is_waiting = false;
+    }
+    finished = true;
+    success = true;
+    return;
+  }
+
+  // send more bytes
+  if (not io_request()) {
+    if (is_waiting != nullptr) {
+      *is_waiting = false;
+    }
+    finished = true;
+    success = false;
+  }
+}
+
+auto TcpSendAll::io_failed(std::uint32_t err_code) -> void {
+  if (is_waiting != nullptr) {
+    *is_waiting = false;
+  }
+  finished = true;
+  success = false;
+
+  std::cerr << utils::with_location(std::format("TcpSendAll  compeletion failed: {}", err_code))
+            << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 
 } // namespace cotask

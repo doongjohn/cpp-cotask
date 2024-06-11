@@ -20,8 +20,7 @@ FileReadBuf::FileReadBuf(TaskScheduler &ts, FileReader *reader, std::span<char> 
   auto read_success = ::ReadFile(reader->impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()),
                                  reinterpret_cast<DWORD *>(&bytes_read), &impl->ovex);
   auto err_code = ::GetLastError();
-  auto read_failed = not read_success and err_code != ERROR_IO_PENDING;
-  if (read_failed) {
+  if (not read_success and err_code != ERROR_IO_PENDING) {
     std::cerr << utils::with_location(std::format("ReadFile failed for \"{}\": {}",
                                                   std::filesystem::absolute(reader->path).string(), err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
@@ -112,8 +111,7 @@ auto FileReadAll::io_read(std::uint32_t bytes_read) -> void {
   }
 
   // read more bytes
-  auto read_success = io_request();
-  if (not read_success) {
+  if (not io_request()) {
     if (is_waiting != nullptr) {
       *is_waiting = false;
     }

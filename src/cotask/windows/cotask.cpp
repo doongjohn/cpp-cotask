@@ -93,7 +93,7 @@ auto TaskScheduler::execute() -> void {
       const auto bytes_transferred = entry.dwNumberOfBytesTransferred;
 
       auto n = DWORD{};
-      switch (std::bit_cast<AsyncIoBase *>(completion_key)->type) {
+      switch (completion_key->type) {
       case AsyncIoType::FileRead: {
         auto reader = std::bit_cast<FileReader *>(completion_key);
         auto ov = reinterpret_cast<OverlappedFile *>(overlapped);
@@ -104,11 +104,11 @@ auto TaskScheduler::execute() -> void {
           if (not ::GetOverlappedResult(reader->impl->file_handle, overlapped, &n, TRUE)) {
             const auto err_code = ::GetLastError();
             if (err_code != ERROR_HANDLE_EOF) {
-              ovex->read_buf->io_failed(err_code);
+              ovex->awaitable->io_failed(err_code);
               continue;
             }
           }
-          ovex->read_buf->io_read(bytes_transferred);
+          ovex->awaitable->io_read(bytes_transferred);
         } break;
 
         case FileIoType::ReadAll: {
@@ -116,11 +116,11 @@ auto TaskScheduler::execute() -> void {
           if (not ::GetOverlappedResult(reader->impl->file_handle, overlapped, &n, TRUE)) {
             const auto err_code = ::GetLastError();
             if (err_code != ERROR_HANDLE_EOF) {
-              ovex->read_all->io_failed(err_code);
+              ovex->awaitable->io_failed(err_code);
               continue;
             }
           }
-          ovex->read_all->io_read(bytes_transferred);
+          ovex->awaitable->io_read(bytes_transferred);
         } break;
         }
       } break;
@@ -139,50 +139,60 @@ auto TaskScheduler::execute() -> void {
           auto ovex = reinterpret_cast<OverlappedTcpAccept *>(ov);
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
-            ovex->io_failed(err_code);
+            ovex->awaitable->io_failed(err_code);
             continue;
           }
-          ovex->io_received(bytes_transferred);
+          ovex->awaitable->io_received(bytes_transferred);
         } break;
 
         case TcpIoType::Connect: {
           auto ovex = reinterpret_cast<OverlappedTcpConnect *>(ov);
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
-            ovex->io_failed(err_code);
+            ovex->awaitable->io_failed(err_code);
             continue;
           }
-          ovex->io_received(bytes_transferred);
+          ovex->awaitable->io_received(bytes_transferred);
         } break;
 
         case TcpIoType::Recv: {
           auto ovex = reinterpret_cast<OverlappedTcpRecv *>(ov);
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
-            ovex->io_failed(err_code);
+            ovex->awaitable->io_failed(err_code);
             continue;
           }
-          ovex->io_received(bytes_transferred);
+          ovex->awaitable->io_received(bytes_transferred);
         } break;
 
         case TcpIoType::RecvAll: {
-          // TODO
-          // auto ovex = reinterpret_cast<OverlappedTcpRecvAll *>(ov);
+          auto ovex = reinterpret_cast<OverlappedTcpRecvAll *>(ov);
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
+            const auto err_code = ::GetLastError();
+            ovex->awaitable->io_failed(err_code);
+            continue;
+          }
+          ovex->awaitable->io_received(bytes_transferred);
         } break;
 
         case TcpIoType::Send: {
           auto ovex = reinterpret_cast<OverlappedTcpSend *>(ov);
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
-            ovex->io_failed(err_code);
+            ovex->awaitable->io_failed(err_code);
             continue;
           }
-          ovex->io_sent(bytes_transferred);
+          ovex->awaitable->io_sent(bytes_transferred);
         } break;
 
         case TcpIoType::SendAll: {
-          // TODO
-          // auto ovex = reinterpret_cast<OverlappedTcpSendAll *>(ov);
+          auto ovex = reinterpret_cast<OverlappedTcpSendAll *>(ov);
+          if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
+            const auto err_code = ::GetLastError();
+            ovex->awaitable->io_failed(err_code);
+            continue;
+          }
+          ovex->awaitable->io_sent(bytes_transferred);
         } break;
         }
       } break;

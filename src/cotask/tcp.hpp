@@ -85,6 +85,10 @@ public:
   ~TcpAccept();
 
 public:
+  auto io_received(std::uint32_t bytes_received) -> void;
+  auto io_failed(std::uint32_t err_code) -> void;
+
+public:
   [[nodiscard]] inline auto await_ready() const -> bool {
     return finished or not success;
   }
@@ -131,6 +135,10 @@ public:
   TcpConnect(TcpSocket *sock, std::string_view ip, std::string_view port);
   inline TcpConnect(const TcpConnect &other) = delete;
   ~TcpConnect();
+
+public:
+  auto io_received(std::uint32_t bytes_received) -> void;
+  auto io_failed(std::uint32_t err_code) -> void;
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
@@ -196,6 +204,10 @@ public:
   ~TcpRecv();
 
 public:
+  auto io_received(std::uint32_t bytes_received) -> void;
+  auto io_failed(std::uint32_t err_code) -> void;
+
+public:
   [[nodiscard]] inline auto await_ready() const -> bool {
     return finished or not success;
   }
@@ -238,11 +250,18 @@ public:
   bool success = false;
 
   std::span<char> buf;
+  std::uint32_t bytes_received = 0;
+  std::size_t total_bytes_received = 0;
 
 public:
   TcpRecvAll(TcpSocket *sock, std::span<char> buf);
   inline TcpRecvAll(const TcpRecvAll &other) = delete;
   ~TcpRecvAll();
+
+public:
+  auto io_request() -> bool;
+  auto io_received(std::uint32_t bytes_received) -> void;
+  auto io_failed(std::uint32_t err_code) -> void;
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
@@ -301,6 +320,10 @@ public:
   ~TcpSend();
 
 public:
+  auto io_sent(std::uint32_t bytes_sent) -> void;
+  auto io_failed(std::uint32_t err_code) -> void;
+
+public:
   [[nodiscard]] inline auto await_ready() const -> bool {
     return finished or not success;
   }
@@ -344,10 +367,16 @@ public:
 
   std::span<char> buf;
   std::uint32_t bytes_sent = 0;
+  std::size_t total_bytes_sent = 0;
 
 public:
   TcpSendAll(TcpSocket *sock, std::span<char> buf);
   ~TcpSendAll();
+
+public:
+  auto io_request() -> bool;
+  auto io_sent(std::uint32_t bytes_sent) -> void;
+  auto io_failed(std::uint32_t err_code) -> void;
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {

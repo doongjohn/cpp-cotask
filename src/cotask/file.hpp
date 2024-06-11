@@ -50,9 +50,11 @@ public:
   inline FileReadBuf(const FileReadBuf &other) = delete;
   ~FileReadBuf();
 
+public:
   auto io_read(std::uint32_t bytes_read) -> void;
   auto io_failed(std::uint32_t err_code) -> void;
 
+public:
   inline auto await_ready() -> bool {
     return finished or not success;
   }
@@ -118,10 +120,12 @@ public:
   inline FileReadAll(const FileReadAll &other) = delete;
   ~FileReadAll();
 
+public:
   auto io_request() -> bool;
   auto io_read(std::uint32_t bytes_transferred) -> void;
   auto io_failed(std::uint32_t err_code) -> void;
 
+public:
   inline auto await_ready() -> bool {
     return finished or not success;
   }

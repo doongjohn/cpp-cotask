@@ -13,28 +13,28 @@ struct OverlappedFile : public OVERLAPPED {
 
 struct OverlappedFileReadBuf : OVERLAPPED {
   const FileIoType type = FileIoType::ReadBuf;
-  FileReadBuf *read_buf;
+  FileReadBuf *awaitable;
 
-  inline explicit OverlappedFileReadBuf(FileReadBuf *read_buf) : OVERLAPPED{}, read_buf{read_buf} {}
+  inline explicit OverlappedFileReadBuf(FileReadBuf *read_buf) : OVERLAPPED{}, awaitable{read_buf} {}
 };
 
 struct FileReadBuf::Impl {
   OverlappedFileReadBuf ovex;
 
-  inline explicit Impl(FileReadBuf *read_buf) : ovex{read_buf} {}
+  inline explicit Impl(FileReadBuf *awaitable) : ovex{awaitable} {}
 };
 
 struct OverlappedFileReadAll : OVERLAPPED {
   const FileIoType type = FileIoType::ReadAll;
-  FileReadAll *read_all;
+  FileReadAll *awaitable;
 
-  inline OverlappedFileReadAll(FileReadAll *read_all) : OVERLAPPED{}, read_all{read_all} {}
+  inline OverlappedFileReadAll(FileReadAll *read_all) : OVERLAPPED{}, awaitable{read_all} {}
 };
 
 struct FileReadAll::Impl {
   OverlappedFileReadAll ovex;
 
-  inline explicit Impl(FileReadAll *read_all) : ovex{read_all} {}
+  inline explicit Impl(FileReadAll *awaitable) : ovex{awaitable} {}
 };
 
 struct FileReader::Impl {
