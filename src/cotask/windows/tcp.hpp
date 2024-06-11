@@ -7,6 +7,8 @@
 #include <winsock2.h>
 #include <mswsock.h>
 
+// TODO: make Reader Writer API
+
 // TcpSocket
 namespace cotask {
 

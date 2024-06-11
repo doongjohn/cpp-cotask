@@ -14,7 +14,7 @@ auto async_client(cotask::TaskScheduler &ts) -> cotask::Task<void> {
   }
 
   const auto timer = 10;
-  auto start = std::chrono::steady_clock::now();
+  auto timer_start = std::chrono::steady_clock::now();
 
   while (true) {
     std::cout << "client - recv\n";
@@ -33,9 +33,9 @@ auto async_client(cotask::TaskScheduler &ts) -> cotask::Task<void> {
     }
 
     // timer
-    auto end = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-    if (timer <= duration.count()) {
+    auto timer_end = std::chrono::steady_clock::now();
+    auto timer_duration = std::chrono::duration_cast<std::chrono::seconds>(timer_end - timer_start);
+    if (timer <= timer_duration.count()) {
       break;
     }
   }

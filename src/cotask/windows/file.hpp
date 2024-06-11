@@ -11,6 +11,14 @@ struct OverlappedFile : public OVERLAPPED {
   const FileIoType type;
 };
 
+} // namespace cotask
+
+namespace cotask {
+
+struct FileReader::Impl {
+  HANDLE file_handle = nullptr;
+};
+
 struct OverlappedFileReadBuf : OVERLAPPED {
   const FileIoType type = FileIoType::ReadBuf;
   FileReadBuf *awaitable;
@@ -35,10 +43,6 @@ struct FileReadAll::Impl {
   OverlappedFileReadAll ovex;
 
   inline explicit Impl(FileReadAll *awaitable) : ovex{awaitable} {}
-};
-
-struct FileReader::Impl {
-  HANDLE file_handle = nullptr;
 };
 
 } // namespace cotask
