@@ -22,8 +22,8 @@ C++ 20 coroutine task
   - [x] sync bind
   - [x] asnyc accept
   - [x] asnyc recv once
-  - [ ] asnyc recv all
+  - [x] asnyc recv all
   - [x] asnyc send once
-  - [ ] asnyc send all
+  - [x] asnyc send all
 - [ ] asnyc timer
 - [ ] asnyc cancel
