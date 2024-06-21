@@ -157,6 +157,8 @@ auto TcpAccept::io_failed(std::uint32_t err_code) -> void {
   finished = true;
   success = false;
 
+  accept_socket->close();
+
   std::cerr << utils::with_location(std::format("TcpAccept compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
@@ -267,6 +269,8 @@ auto TcpConnect::io_failed(std::uint32_t err_code) -> void {
   finished = true;
   success = false;
 
+  tcp_socket.close();
+
   std::cerr << utils::with_location(std::format("TcpConnect compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
@@ -286,6 +290,7 @@ auto TcpSocket::close() -> bool {
     }
   }
 
+  // TODO: learn more about linger option
   auto linger = LINGER{
     .l_onoff = 0,
     .l_linger = 0,
@@ -495,7 +500,7 @@ auto TcpSend::io_failed(std::uint32_t err_code) -> void {
 // SendAll
 namespace cotask {
 
-TcpSendAll::TcpSendAll(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
+TcpSendAll::TcpSendAll(TcpSocket *sock, std::span<const char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
   IMPL_CONSTRUCT(this);
 
   if (not io_request()) {

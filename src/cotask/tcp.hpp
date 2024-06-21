@@ -365,12 +365,12 @@ public:
   bool finished = false;
   bool success = false;
 
-  std::span<char> buf;
+  std::span<const char> buf;
   std::uint32_t bytes_sent = 0;
   std::size_t total_bytes_sent = 0;
 
 public:
-  TcpSendAll(TcpSocket *sock, std::span<char> buf);
+  TcpSendAll(TcpSocket *sock, std::span<const char> buf);
   ~TcpSendAll();
 
 public:

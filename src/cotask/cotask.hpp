@@ -61,9 +61,6 @@ template <typename T>
 struct Task;
 
 struct TaskScheduler {
-  template <typename T>
-  friend struct Task;
-
 public:
   struct Impl;
   alignas(8) std::uint8_t impl_storage[8]{};
@@ -92,12 +89,11 @@ public:
     tasks.push_back(task);
   }
 
-  auto execute() -> void;
-
-private:
   inline auto defer_destroy_cohandle(std::coroutine_handle<> cohandle) -> void {
     ended_task.push_back(cohandle);
   }
+
+  auto execute() -> void;
 };
 
 struct TaskPromise {
@@ -250,5 +246,30 @@ template <typename T>
 inline auto TaskScheduler::schedule_from_sync(Task<T> &&task) -> void {
   top_level_tasks.push_back(task.cohandle);
 }
+
+struct SelfDestruct {
+  TaskScheduler &ts;
+  std::coroutine_handle<> cohandle;
+
+  inline SelfDestruct(TaskScheduler &ts) : ts{ts} {}
+
+  [[nodiscard]] inline auto await_ready() const noexcept -> bool {
+    return false;
+  }
+
+  template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
+    this->cohandle = cohandle;
+  }
+
+  template <typename Promise = Task<void>::promise_type>
+  inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
+    this->cohandle = cohandle;
+  }
+
+  inline auto await_resume() const noexcept -> void {
+    ts.defer_destroy_cohandle(cohandle);
+  }
+};
 
 } // namespace cotask
