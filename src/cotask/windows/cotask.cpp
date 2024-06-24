@@ -162,6 +162,10 @@ auto TaskScheduler::execute() -> void {
 
         case TcpIoType::Recv: {
           auto ovex = reinterpret_cast<OverlappedTcpRecv *>(ov);
+          if (ovex->awaitable->timer.ended) {
+            // timeout
+            continue;
+          }
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
             if (err_code == WSA_OPERATION_ABORTED and ovex->awaitable->timer.ended) {
@@ -175,7 +179,12 @@ auto TaskScheduler::execute() -> void {
         } break;
 
         case TcpIoType::RecvAll: {
+          std::cout << "RecvAll\n";
           auto ovex = reinterpret_cast<OverlappedTcpRecvAll *>(ov);
+          if (ovex->awaitable->timer.ended) {
+            // timeout
+            continue;
+          }
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
             if (err_code == WSA_OPERATION_ABORTED and ovex->awaitable->timer.ended) {
