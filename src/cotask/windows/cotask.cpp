@@ -179,7 +179,6 @@ auto TaskScheduler::execute() -> void {
         } break;
 
         case TcpIoType::RecvAll: {
-          std::cout << "RecvAll\n";
           auto ovex = reinterpret_cast<OverlappedTcpRecvAll *>(ov);
           if (ovex->awaitable->timer.ended) {
             // timeout

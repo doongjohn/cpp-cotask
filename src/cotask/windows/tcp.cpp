@@ -350,21 +350,19 @@ TcpRecv::TcpRecv(TcpSocket *sock, std::span<char> buf, std::uint64_t timeout)
       [](PTP_CALLBACK_INSTANCE, PVOID context, PTP_TIMER) {
         auto awaitable = static_cast<TcpRecv *>(context);
 
-        if (not awaitable->finished) {
-          awaitable->timer.fn_on_ended = [=]() {
-            if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
-              const auto err_code = ::GetLastError();
-              std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
-                        << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-            }
-
-            awaitable->finished = false;
-            awaitable->success = false;
-          };
-
-          auto &ts = awaitable->ts;
-          ::PostQueuedCompletionStatus(ts.impl->iocp_handle, 0, std::bit_cast<ULONG_PTR>(&awaitable->timer), nullptr);
+        if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
+          const auto err_code = ::GetLastError();
+          std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
+                    << std::format("err msg: {}\n", std::system_category().message((int)err_code));
         }
+
+        awaitable->timer.fn_on_ended = [=]() {
+          awaitable->finished = false;
+          awaitable->success = false;
+        };
+
+        auto &ts = awaitable->ts;
+        ::PostQueuedCompletionStatus(ts.impl->iocp_handle, 0, std::bit_cast<ULONG_PTR>(&awaitable->timer), nullptr);
       },
       this, nullptr);
 
@@ -427,21 +425,19 @@ TcpRecvAll::TcpRecvAll(TcpSocket *sock, std::span<char> buf, std::uint64_t timeo
       [](PTP_CALLBACK_INSTANCE, PVOID context, PTP_TIMER) {
         auto awaitable = static_cast<TcpRecvAll *>(context);
 
-        if (not awaitable->finished) {
-          awaitable->timer.fn_on_ended = [=]() {
-            if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
-              const auto err_code = ::GetLastError();
-              std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
-                        << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-            }
-
-            awaitable->finished = false;
-            awaitable->success = false;
-          };
-
-          auto &ts = awaitable->ts;
-          ::PostQueuedCompletionStatus(ts.impl->iocp_handle, 0, std::bit_cast<ULONG_PTR>(&awaitable->timer), nullptr);
+        if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
+          const auto err_code = ::GetLastError();
+          std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
+                    << std::format("err msg: {}\n", std::system_category().message((int)err_code));
         }
+
+        awaitable->timer.fn_on_ended = [=]() {
+          awaitable->finished = false;
+          awaitable->success = false;
+        };
+
+        auto &ts = awaitable->ts;
+        ::PostQueuedCompletionStatus(ts.impl->iocp_handle, 0, std::bit_cast<ULONG_PTR>(&awaitable->timer), nullptr);
       },
       this, nullptr);
 
