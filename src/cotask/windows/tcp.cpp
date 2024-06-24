@@ -350,13 +350,13 @@ TcpRecv::TcpRecv(TcpSocket *sock, std::span<char> buf, std::uint64_t timeout)
       [](PTP_CALLBACK_INSTANCE, PVOID context, PTP_TIMER) {
         auto awaitable = static_cast<TcpRecv *>(context);
 
-        if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
-          const auto err_code = ::GetLastError();
-          std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
-                    << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-        }
-
         awaitable->timer.fn_on_ended = [=]() {
+          if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
+            const auto err_code = ::GetLastError();
+            std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
+                      << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+          }
+
           awaitable->finished = false;
           awaitable->success = false;
         };
@@ -387,8 +387,9 @@ auto TcpRecv::io_received(std::uint32_t bytes_received) -> void {
   if (is_waiting != nullptr) {
     *is_waiting = false;
   }
+
   finished = true;
-  success = true;
+  success = bytes_received != 0;
   this->bytes_received = bytes_received;
   buf = {buf.data(), bytes_received};
   timer.close();
@@ -425,13 +426,13 @@ TcpRecvAll::TcpRecvAll(TcpSocket *sock, std::span<char> buf, std::uint64_t timeo
       [](PTP_CALLBACK_INSTANCE, PVOID context, PTP_TIMER) {
         auto awaitable = static_cast<TcpRecvAll *>(context);
 
-        if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
-          const auto err_code = ::GetLastError();
-          std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
-                    << std::format("err msg: {}\n", std::system_category().message((int)err_code));
-        }
-
         awaitable->timer.fn_on_ended = [=]() {
+          if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
+            const auto err_code = ::GetLastError();
+            std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
+                      << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+          }
+
           awaitable->finished = false;
           awaitable->success = false;
         };
@@ -493,6 +494,14 @@ auto TcpRecvAll::io_received(std::uint32_t bytes_received) -> void {
     }
     finished = true;
     success = true;
+    timer.close();
+    return;
+  }
+
+  // check closed
+  if (bytes_received == 0) {
+    finished = true;
+    success = false;
     timer.close();
     return;
   }
