@@ -31,6 +31,7 @@ target_sources(
       src/cotask/impl.hpp
       src/cotask/utils.hpp
       src/cotask/cotask.hpp
+      src/cotask/timer.hpp
       src/cotask/file.hpp
       src/cotask/tcp.hpp
 )
@@ -41,6 +42,8 @@ if (WIN32)
     PRIVATE
       src/cotask/windows/cotask.hpp
       src/cotask/windows/cotask.cpp
+      src/cotask/windows/timer.hpp
+      src/cotask/windows/timer.cpp
       src/cotask/windows/file.hpp
       src/cotask/windows/file.cpp
       src/cotask/windows/tcp.hpp

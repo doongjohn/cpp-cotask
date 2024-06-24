@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cotask/cotask.hpp>
+#include <cotask/timer.hpp>
 
 #include <span>
 #include <string_view>
@@ -197,9 +198,10 @@ public:
 
   std::span<char> buf;
   std::uint32_t bytes_received = 0;
+  Timer timer;
 
 public:
-  TcpRecv(TcpSocket *sock, std::span<char> buf);
+  TcpRecv(TcpSocket *sock, std::span<char> buf, std::uint64_t timeout = 0);
   inline TcpRecv(const TcpRecv &other) = delete;
   ~TcpRecv();
 
@@ -209,18 +211,20 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return finished or not success;
+    return timer.ended or finished or not success;
   }
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->is_waiting = &cohandle.promise().is_waiting;
+    this->timer.is_waiting = this->is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->is_waiting = &cohandle.promise().is_waiting;
+    this->timer.is_waiting = this->is_waiting;
     *this->is_waiting = true;
   }
 
@@ -252,9 +256,10 @@ public:
   std::span<char> buf;
   std::uint32_t bytes_received = 0;
   std::size_t total_bytes_received = 0;
+  Timer timer;
 
 public:
-  TcpRecvAll(TcpSocket *sock, std::span<char> buf);
+  TcpRecvAll(TcpSocket *sock, std::span<char> buf, std::uint64_t timeout = 0);
   inline TcpRecvAll(const TcpRecvAll &other) = delete;
   ~TcpRecvAll();
 
@@ -265,18 +270,20 @@ public:
 
 public:
   [[nodiscard]] inline auto await_ready() const -> bool {
-    return finished or not success;
+    return timer.ended or finished or not success;
   }
 
   template <typename TaskResult, typename Promise = Task<TaskResult>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->is_waiting = &cohandle.promise().is_waiting;
+    this->timer.is_waiting = this->is_waiting;
     *this->is_waiting = true;
   }
 
   template <typename Promise = Task<void>::promise_type>
   inline auto await_suspend(std::coroutine_handle<Promise> cohandle) noexcept -> void {
     this->is_waiting = &cohandle.promise().is_waiting;
+    this->timer.is_waiting = this->is_waiting;
     *this->is_waiting = true;
   }
 

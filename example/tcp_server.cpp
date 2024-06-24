@@ -23,8 +23,13 @@ auto async_server(cotask::TaskScheduler &ts, cotask::TcpSocket listen_socket, in
 
     std::cout << std::format("server {} - recv\n", n);
     auto recv_buf = std::array<char, 22>{};
-    auto recv_result = co_await cotask::TcpRecvAll{&client_socket, recv_buf};
+    auto recv_result = co_await cotask::TcpRecvAll{&client_socket, recv_buf, 3000};
+    if (not recv_result.finished) {
+      std::cout << "recv timeout\n";
+      break;
+    }
     if (not recv_result.success) {
+      std::cout << "recv failed\n";
       break;
     }
     std::cout << recv_result.get_string_view() << '\n';

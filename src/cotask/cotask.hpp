@@ -8,6 +8,7 @@
 namespace cotask {
 
 enum struct AsyncIoType {
+  Timer,
   FileRead,
   FileWrite, // TODO
   TcpSocket,

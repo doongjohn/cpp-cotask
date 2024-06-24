@@ -19,10 +19,10 @@ FileReadBuf::FileReadBuf(TaskScheduler &ts, FileReader *reader, std::span<char> 
   // read file
   auto read_success = ::ReadFile(reader->impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()),
                                  reinterpret_cast<DWORD *>(&bytes_read), &impl->ovex);
-  auto err_code = ::GetLastError();
+  const auto err_code = ::GetLastError();
   if (not read_success and err_code != ERROR_IO_PENDING) {
-    std::cerr << utils::with_location(std::format("ReadFile failed for \"{}\": {}",
-                                                  std::filesystem::absolute(reader->path).string(), err_code))
+    auto path_str = std::filesystem::absolute(reader->path).string();
+    std::cerr << utils::with_location(std::format("ReadFile failed for \"{}\": {}", path_str, err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
     return;
   }
@@ -79,13 +79,12 @@ FileReadAll::~FileReadAll() {
 auto FileReadAll::io_request() -> bool {
   auto read_success = ::ReadFile(reader->impl->file_handle, buf.data(), static_cast<DWORD>(buf.size()),
                                  reinterpret_cast<DWORD *>(&bytes_read), &impl->ovex);
-  auto err_code = ::GetLastError();
-  auto read_failed = not read_success and err_code != ERROR_IO_PENDING;
-  if (read_failed) {
+  const auto err_code = ::GetLastError();
+  if (not read_success and err_code != ERROR_IO_PENDING) {
     success = false;
 
-    std::cerr << utils::with_location(std::format("ReadFile failed for \"{}\": {}",
-                                                  std::filesystem::absolute(reader->path).string(), err_code))
+    auto path_str = std::filesystem::absolute(reader->path).string();
+    std::cerr << utils::with_location(std::format("ReadFile failed for \"{}\": {}", path_str, err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
     return false;
   }
@@ -137,22 +136,22 @@ FileReader::FileReader(TaskScheduler &ts, const std::filesystem::path &path) : t
     ::CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
 
   if (impl->file_handle == nullptr) {
-    auto err_code = ::GetLastError();
+    const auto err_code = ::GetLastError();
 
-    std::cerr << utils::with_location(
-                   std::format("CreateFileW failed for \"{}\": {}", std::filesystem::absolute(path).string(), err_code))
+    auto path_str = std::filesystem::absolute(path).string();
+    std::cerr << utils::with_location(std::format("CreateFileW failed for \"{}\": {}", path_str, err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
     return;
   }
 
   // setup IOCP
   if (::CreateIoCompletionPort(impl->file_handle, ts.impl->iocp_handle, (ULONG_PTR)this, 0) == nullptr) {
-    auto err_code = ::GetLastError();
+    const auto err_code = ::GetLastError();
     ::CloseHandle(impl->file_handle);
     impl->file_handle = nullptr;
 
-    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed for \"{}\": {}",
-                                                  std::filesystem::absolute(path).string(), err_code))
+    auto path_str = std::filesystem::absolute(path).string();
+    std::cerr << utils::with_location(std::format("CreateIoCompletionPort failed for \"{}\": {}", path_str, err_code))
               << std::format("err msg: {}\n", std::system_category().message((int)err_code));
   }
 }

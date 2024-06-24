@@ -1,5 +1,6 @@
 #include "cotask.hpp"
 #include "tcp.hpp"
+#include "timer.hpp"
 
 #include <cotask/impl.hpp>
 #include <cotask/utils.hpp>
@@ -320,7 +321,8 @@ auto TcpSocket::close() -> bool {
 // Recv
 namespace cotask {
 
-TcpRecv::TcpRecv(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
+TcpRecv::TcpRecv(TcpSocket *sock, std::span<char> buf, std::uint64_t timeout)
+    : tcp_socket{*sock}, ts{sock->ts}, buf{buf}, timer{timeout} {
   IMPL_CONSTRUCT(this);
 
   auto wsa_buf = WSABUF{
@@ -341,6 +343,40 @@ TcpRecv::TcpRecv(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{s
     }
   }
 
+  // cancel on timeout
+  if (timeout > 0) {
+    // create timer
+    timer.impl->timer = ::CreateThreadpoolTimer(
+      [](PTP_CALLBACK_INSTANCE, PVOID context, PTP_TIMER) {
+        auto awaitable = static_cast<TcpRecv *>(context);
+        awaitable->timer.ended = true;
+
+        if (not awaitable->finished) {
+          if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
+            const auto err_code = ::GetLastError();
+            std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
+                      << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+          }
+
+          awaitable->finished = false;
+          awaitable->success = false;
+
+          auto &ts = awaitable->ts;
+          ::PostQueuedCompletionStatus(ts.impl->iocp_handle, 0, std::bit_cast<ULONG_PTR>(&awaitable->timer), nullptr);
+        }
+      },
+      this, nullptr);
+
+    if (timer.impl->timer == nullptr) {
+      const auto err_code = ::GetLastError();
+      std::cerr << utils::with_location(std::format("CreateThreadpoolTimer failed: {}", err_code))
+                << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+      return;
+    }
+
+    timer.start();
+  }
+
   success = true;
 }
 
@@ -356,6 +392,7 @@ auto TcpRecv::io_received(std::uint32_t bytes_received) -> void {
   success = true;
   this->bytes_received = bytes_received;
   buf = {buf.data(), bytes_received};
+  timer.close();
 }
 
 auto TcpRecv::io_failed(std::uint32_t err_code) -> void {
@@ -364,8 +401,9 @@ auto TcpRecv::io_failed(std::uint32_t err_code) -> void {
   }
   finished = true;
   success = false;
+  timer.close();
 
-  std::cerr << utils::with_location(std::format("TcpRecv  compeletion failed: {}", err_code))
+  std::cerr << utils::with_location(std::format("TcpRecv compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 
@@ -374,11 +412,45 @@ auto TcpRecv::io_failed(std::uint32_t err_code) -> void {
 // RecvAll
 namespace cotask {
 
-TcpRecvAll::TcpRecvAll(TcpSocket *sock, std::span<char> buf) : tcp_socket{*sock}, ts{sock->ts}, buf{buf} {
+TcpRecvAll::TcpRecvAll(TcpSocket *sock, std::span<char> buf, std::uint64_t timeout)
+    : tcp_socket{*sock}, ts{sock->ts}, buf{buf}, timer{timeout} {
   IMPL_CONSTRUCT(this);
 
   if (not io_request()) {
     return;
+  }
+
+  if (timeout > 0) {
+    // create timer
+    timer.impl->timer = ::CreateThreadpoolTimer(
+      [](PTP_CALLBACK_INSTANCE, PVOID context, PTP_TIMER) {
+        auto awaitable = static_cast<TcpRecvAll *>(context);
+        awaitable->timer.ended = true;
+
+        if (not awaitable->finished) {
+          if (::CancelIoEx(std::bit_cast<HANDLE>(awaitable->tcp_socket.impl->socket), &awaitable->impl->ovex) == 0) {
+            const auto err_code = ::GetLastError();
+            std::cerr << utils::with_location(std::format("CancelIoEx failed: {}", err_code))
+                      << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+          }
+
+          awaitable->finished = false;
+          awaitable->success = false;
+
+          auto &ts = awaitable->ts;
+          ::PostQueuedCompletionStatus(ts.impl->iocp_handle, 0, std::bit_cast<ULONG_PTR>(&awaitable->timer), nullptr);
+        }
+      },
+      this, nullptr);
+
+    if (timer.impl->timer == nullptr) {
+      const auto err_code = ::GetLastError();
+      std::cerr << utils::with_location(std::format("CreateThreadpoolTimer failed: {}", err_code))
+                << std::format("err msg: {}\n", std::system_category().message((int)err_code));
+      return;
+    }
+
+    timer.start();
   }
 
   success = true;
@@ -389,6 +461,8 @@ TcpRecvAll::~TcpRecvAll() {
 }
 
 auto TcpRecvAll::io_request() -> bool {
+  timer.start();
+
   auto wsa_buf = WSABUF{
     .len = static_cast<ULONG>(buf.size() - total_bytes_received),
     .buf = buf.data() + total_bytes_received,
@@ -401,6 +475,7 @@ auto TcpRecvAll::io_request() -> bool {
   if (recv_result != 0) {
     const auto err_code = ::WSAGetLastError();
     if (err_code != WSA_IO_PENDING) {
+      timer.close();
       std::cerr << utils::with_location(std::format("WSARecv failed: {}", err_code))
                 << std::format("err msg: {}\n", std::system_category().message((int)err_code));
       return false;
@@ -420,11 +495,13 @@ auto TcpRecvAll::io_received(std::uint32_t bytes_received) -> void {
     }
     finished = true;
     success = true;
+    timer.close();
     return;
   }
 
   // recv more bytes
   if (not io_request()) {
+    // recv failed
     if (is_waiting != nullptr) {
       *is_waiting = false;
     }
@@ -439,6 +516,7 @@ auto TcpRecvAll::io_failed(std::uint32_t err_code) -> void {
   }
   finished = true;
   success = false;
+  timer.close();
 
   std::cerr << utils::with_location(std::format("TcpRecvAll compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
@@ -491,7 +569,7 @@ auto TcpSend::io_failed(std::uint32_t err_code) -> void {
   finished = true;
   success = false;
 
-  std::cerr << utils::with_location(std::format("TcpSend  compeletion failed: {}", err_code))
+  std::cerr << utils::with_location(std::format("TcpSend compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 
@@ -564,7 +642,7 @@ auto TcpSendAll::io_failed(std::uint32_t err_code) -> void {
   finished = true;
   success = false;
 
-  std::cerr << utils::with_location(std::format("TcpSendAll  compeletion failed: {}", err_code))
+  std::cerr << utils::with_location(std::format("TcpSendAll compeletion failed: {}", err_code))
             << std::format("err msg: {}\n", std::system_category().message((int)err_code));
 }
 

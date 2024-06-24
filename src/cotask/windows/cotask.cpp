@@ -83,6 +83,7 @@ auto TaskScheduler::execute() -> void {
     }
 
     // handle io compeletions
+    auto n = DWORD{};
     for (const auto entry : std::span{entries.data(), num_entries}) {
       if (entry.lpCompletionKey == 0) {
         return;
@@ -92,8 +93,12 @@ auto TaskScheduler::execute() -> void {
       const auto overlapped = entry.lpOverlapped;
       const auto bytes_transferred = entry.dwNumberOfBytesTransferred;
 
-      auto n = DWORD{};
       switch (completion_key->type) {
+      case AsyncIoType::Timer: {
+        auto timer = std::bit_cast<Timer *>(completion_key);
+        timer->on_ended();
+      } break;
+
       case AsyncIoType::FileRead: {
         auto reader = std::bit_cast<FileReader *>(completion_key);
         auto ov = reinterpret_cast<OverlappedFile *>(overlapped);
@@ -159,6 +164,10 @@ auto TaskScheduler::execute() -> void {
           auto ovex = reinterpret_cast<OverlappedTcpRecv *>(ov);
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
+            if (err_code == WSA_OPERATION_ABORTED and ovex->awaitable->timer.ended) {
+              // timeout
+              continue;
+            }
             ovex->awaitable->io_failed(err_code);
             continue;
           }
@@ -169,6 +178,10 @@ auto TaskScheduler::execute() -> void {
           auto ovex = reinterpret_cast<OverlappedTcpRecvAll *>(ov);
           if (not ::WSAGetOverlappedResult(tcp_socket->impl->socket, overlapped, &n, TRUE, &flags)) {
             const auto err_code = ::GetLastError();
+            if (err_code == WSA_OPERATION_ABORTED and ovex->awaitable->timer.ended) {
+              // timeout
+              continue;
+            }
             ovex->awaitable->io_failed(err_code);
             continue;
           }
