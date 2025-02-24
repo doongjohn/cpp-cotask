@@ -4,6 +4,7 @@
 #include <cotask/timer.hpp>
 
 #include <span>
+#include <string>
 #include <string_view>
 
 namespace cotask {

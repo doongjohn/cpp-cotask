@@ -1,0 +1,169 @@
+{
+  "$schema": "https://cmake.org/cmake/help/latest/_downloads/3e2d73bff478d88a7de0de736ba5e361/schema.json",
+  "version": 8,
+  "configurePresets": [
+    {
+      "name": "gcc",
+      "displayName": "gcc (ninja)",
+      "description": "gcc (ninja)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc_release",
+      "environment": {
+        "CC": "gcc",
+        "CXX": "g++"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "gcc debug",
+      "displayName": "gcc (ninja, sanitizer)",
+      "description": "gcc (ninja, sanitizer)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc_debug",
+      "environment": {
+        "CC": "gcc",
+        "CXX": "g++"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "ON"
+      }
+    },
+    {
+      "name": "clang",
+      "displayName": "clang (ninja)",
+      "description": "clang (ninja)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang_release",
+      "environment": {
+        "CC": "clang",
+        "CXX": "clang++"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "clang debug",
+      "displayName": "clang (ninja, sanitizer)",
+      "description": "clang (ninja, sanitizer)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang_debug",
+      "environment": {
+        "CC": "clang",
+        "CXX": "clang++"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "ON"
+      }
+    },
+    {
+      "name": "msvc",
+      "displayName": "msvc (ninja)",
+      "description": "msvc (ninja)",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "$env{VSINSTALLDIR}",
+        "rhs": ""
+      },
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/msvc_release",
+      "environment": {
+        "CC": "cl.exe",
+        "CXX": "cl.exe"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "msvc debug",
+      "displayName": "msvc (ninja, sanitizer)",
+      "description": "msvc (ninja, sanitizer)",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "$env{VSINSTALLDIR}",
+        "rhs": ""
+      },
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/msvc_debug",
+      "environment": {
+        "C": "cl.exe",
+        "CXX": "cl.exe"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_SANITIZER": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "gcc",
+      "configurePreset": "gcc"
+    },
+    {
+      "name": "gcc debug",
+      "configurePreset": "gcc debug"
+    },
+    {
+      "name": "gcc example",
+      "configurePreset": "gcc debug",
+      "targets": [
+        "cotask-example-task",
+        "cotask-example-file",
+        "cotask-example-tcp-server",
+        "cotask-example-tcp-client"
+      ]
+    },
+    {
+      "name": "clang",
+      "configurePreset": "clang"
+    },
+    {
+      "name": "clang debug",
+      "configurePreset": "clang debug"
+    },
+    {
+      "name": "clang example",
+      "configurePreset": "clang debug",
+      "targets": [
+        "cotask-example-task",
+        "cotask-example-file",
+        "cotask-example-tcp-server",
+        "cotask-example-tcp-client"
+      ]
+    },
+    {
+      "name": "msvc",
+      "configurePreset": "msvc",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "$env{VSINSTALLDIR}",
+        "rhs": ""
+      }
+    },
+    {
+      "name": "msvc debug",
+      "configurePreset": "msvc debug",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "$env{VSINSTALLDIR}",
+        "rhs": ""
+      }
+    },
+    {
+      "name": "msvc example",
+      "configurePreset": "msvc debug",
+      "targets": [
+        "cotask-example-task",
+        "cotask-example-file",
+        "cotask-example-tcp-server",
+        "cotask-example-tcp-client"
+      ]
+    }
+  ]
+}
